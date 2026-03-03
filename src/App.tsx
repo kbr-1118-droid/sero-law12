@@ -50,9 +50,9 @@ export default function App() {
     
     const payload = {
       ...formData,
-      income: formData.income + "원",
-      debt: formData.debt + "원",
-      assets: formData.assets + "원",
+      income: formatComma(formData.income) + "원",
+      debt: formatComma(formData.debt) + "원",
+      assets: formatComma(formData.assets) + "원",
       ...diagnosis,
       유입경로: "하이브_새로회생_자가진단",
       접수일시: new Date().toLocaleString('ko-KR')
@@ -110,17 +110,17 @@ export default function App() {
           <h2 style={styles.stepTitle}>2. 경제 상황 진단</h2>
           <div style={styles.inputGroup}>
             <label style={styles.label}>월 평균 수입 (실수령액)</label>
-            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.income)} onChange={e => updateFormData('income', e.target.value)} /><span style={styles.unitText}>원</span></div>
+            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.income)} onChange={e => updateFormData('income', e.target.value.replace(/\D/g, ''))} /><span style={styles.unitText}>원</span></div>
             <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.income))}</div>
           </div>
           <div style={styles.inputGroup}>
             <label style={styles.label}>총 채무 원금 합계</label>
-            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.debt)} onChange={e => updateFormData('debt', e.target.value)} /><span style={styles.unitText}>원</span></div>
+            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.debt)} onChange={e => updateFormData('debt', e.target.value.replace(/\D/g, ''))} /><span style={styles.unitText}>원</span></div>
             <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.debt))}</div>
           </div>
           <div style={styles.inputGroup}>
             <label style={styles.label}>보유 재산 가액 (담보대출 제외)</label>
-            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.assets)} onChange={e => updateFormData('assets', e.target.value)} /><span style={styles.unitText}>원</span></div>
+            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.assets)} onChange={e => updateFormData('assets', e.target.value.replace(/\D/g, ''))} /><span style={styles.unitText}>원</span></div>
             <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.assets))}</div>
           </div>
           <button style={styles.mainBtn} onClick={runDiagnosis}>진단 리포트 생성</button>
