@@ -28,17 +28,27 @@ export default function App() {
   const updateFormData = (key: string, value: any) => setFormData(prev => ({ ...prev, [key]: value }));
 
   const runDiagnosis = () => {
-    const inc = unformat(formData.income);
-    const dbt = unformat(formData.debt);
-    const ast = unformat(formData.assets);
-    const household = 1 + (formData.marital === '결혼' ? 0.5 : 0) + formData.childrenCount + formData.parentsCount;
-    const liveCost = 1330000 * (household * 0.85);
+    const inc = unformat(formData.income); // 월 소득 (원 단위)
+    const dbt = unformat(formData.debt) * 10000; // 채무 (만원 단위 -> 원 단위 변환)
+    const ast = unformat(formData.assets) * 10000; // 재산 (만원 단위 -> 원 단위 변환)
+    
+    // 부양가족 수 제외하고 본인(1인) 기준으로만 생계비 계산 (요청사항 반영)
+    const household = 1; 
+    const liveCost = 1330000 * household; // 1인 최저생계비 기준
 
     let res = { type: '개인회생 집중 진단', desc: '현재 소득과 채무 구조상 법원을 통한 원금 탕감 가능성이 매우 높습니다.', color: '#2563eb' };
+    
+    // 소득이 최저생계비보다 적으면 파산 고려
     if (inc < liveCost) {
       res = { type: '개인파산/면책 검토', desc: '수입 대비 생계비 부담이 커서 원금 전액 면책이 가능한 파산 절차가 유리할 수 있습니다.', color: '#dc2626' };
-    } else if (ast >= dbt) {
+    } 
+    // 재산이 채무보다 많으면 워크아웃 고려
+    else if (ast >= dbt) {
       res = { type: '신용회복/워크아웃', desc: '보유 재산이 채무보다 많아 회생 기각 우려가 있으니 이자 감면 제도를 우선 추천합니다.', color: '#059669' };
+    } 
+    // 채무액이 1,500만원 이하인 경우
+    else if (dbt < 15000000) {
+      res = { type: '신용회복/워크아웃 유리', desc: '채무액이 1,500만원 이하인 경우, 회생 비용 대비 실익이 적을 수 있어 신용회복위원회 절차가 더 유리할 수 있습니다.', color: '#059669' };
     }
     setDiagnosis(res);
     setScreen('result');
@@ -51,15 +61,17 @@ export default function App() {
     const payload = {
       ...formData,
       income: formatComma(formData.income) + "원",
-      debt: formatComma(formData.debt) + "원",
-      assets: formatComma(formData.assets) + "원",
+      debt: formatComma(formData.debt) + "만원", // 만원 단위 표기
+      assets: formatComma(formData.assets) + "만원", // 만원 단위 표기
+      real_debt_won: (unformat(formData.debt) * 10000) + "원", // 엑셀 확인용 원단위 변환값
+      real_assets_won: (unformat(formData.assets) * 10000) + "원", // 엑셀 확인용 원단위 변환값
       ...diagnosis,
       유입경로: "하이브_새로회생_자가진단",
       접수일시: new Date().toLocaleString('ko-KR')
     };
 
     try {
-      // 구글 시트 전송 (항목 매칭)
+      // 구글 시트 전송
       fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       // 이메일 알림 전송
       const res = await fetch(FORM_SPREE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -76,7 +88,7 @@ export default function App() {
           <h1 style={styles.mainTitle}>지긋지긋한 채무,<br/><span style={{color: '#2563eb'}}>나의 해결책은?</span></h1>
           <p style={styles.subTitle}>변호사가 검토하는 2026 최신 기준 리포트.<br/><b>신청해주시면 순차적으로 연락드립니다.</b></p>
           <div style={styles.trustBox}>
-            <div style={styles.trustItem}>✅ <b>광주회생법원</b> 최신 판례 실시간 반영</div>
+            <div style={styles.trustItem}>✅ <b>회생법원 2026 실무준칙</b> 성공사례 적용</div>
             <div style={styles.trustItem}>✅ <b>신속 상담</b> 신청 순서대로 빠른 연락</div>
             <div style={styles.trustItem}>✅ <b>비밀보장</b> 가족/직장 모르게 철저 보안</div>
           </div>
@@ -101,7 +113,10 @@ export default function App() {
             <label style={styles.label}>부양가족 수 (미성년 자녀/부모님)</label>
             <input type="number" inputMode="numeric" style={styles.input} placeholder="0" onChange={e => updateFormData('childrenCount', Number(e.target.value))} />
           </div>
-          <button style={styles.mainBtn} onClick={() => setScreen('step2')}>다음 단계로</button>
+          <div style={{display:'flex', gap:'10px'}}>
+            <button style={styles.prevBtn} onClick={() => setScreen('intro')}>이전</button>
+            <button style={{...styles.mainBtn, flex:1}} onClick={() => setScreen('step2')}>다음 단계로</button>
+          </div>
         </div>
       )}
 
@@ -114,16 +129,19 @@ export default function App() {
             <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.income))}</div>
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>총 채무 원금 합계</label>
-            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.debt)} onChange={e => updateFormData('debt', e.target.value.replace(/\D/g, ''))} /><span style={styles.unitText}>원</span></div>
-            <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.debt))}</div>
+            <label style={styles.label}>총 채무 원금 합계 (만원 단위)</label>
+            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.debt)} onChange={e => updateFormData('debt', e.target.value.replace(/\D/g, ''))} /><span style={styles.unitText}>만원</span></div>
+            <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.debt) * 10000)}</div>
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>보유 재산 가액 (담보대출 제외)</label>
-            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.assets)} onChange={e => updateFormData('assets', e.target.value.replace(/\D/g, ''))} /><span style={styles.unitText}>원</span></div>
-            <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.assets))}</div>
+            <label style={styles.label}>보유 재산 가액 (만원 단위)</label>
+            <div style={{position:'relative'}}><input type="text" inputMode="numeric" style={styles.input} value={formatComma(formData.assets)} onChange={e => updateFormData('assets', e.target.value.replace(/\D/g, ''))} /><span style={styles.unitText}>만원</span></div>
+            <div style={styles.kAmtLabel}>{toKoreanAmount(unformat(formData.assets) * 10000)}</div>
           </div>
-          <button style={styles.mainBtn} onClick={runDiagnosis}>진단 리포트 생성</button>
+          <div style={{display:'flex', gap:'10px'}}>
+            <button style={styles.prevBtn} onClick={() => setScreen('step1')}>이전</button>
+            <button style={{...styles.mainBtn, flex:1}} onClick={runDiagnosis}>진단 리포트 생성</button>
+          </div>
         </div>
       )}
 
@@ -143,7 +161,10 @@ export default function App() {
               <option value="점심 (12~13시)">점심 시간 활용</option>
               <option value="오후 (13~18시)">오후 (13~18시)</option>
             </select>
-            <button style={styles.submitBtn} onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? '전송 중...' : '무료 리포트 신청'}</button>
+            <div style={{display:'flex', gap:'10px'}}>
+              <button style={styles.prevBtn} onClick={() => setScreen('step2')}>이전</button>
+              <button style={{...styles.submitBtn, flex:1, marginTop:0}} onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? '전송 중...' : '무료 리포트 신청'}</button>
+            </div>
           </div>
           <p style={{textAlign:'center', fontSize:'12px', color:'#94a3b8'}}>🔒 모든 정보는 법률에 의해 비밀이 보장됩니다.</p>
         </div>
@@ -154,8 +175,8 @@ export default function App() {
           <div style={{fontSize:'70px'}}>🎉</div>
           <h2>신청이 완료되었습니다.</h2>
           <p style={{color:'#64748b', lineHeight:'1.7'}}>
-            하이브 새로회생 전문팀이 곧 연락드리겠습니다.<br/>
-            <b>담당자가 순차적으로 연락드리겠습니다.</b>
+            전문 상담팀이 입력하신 내용을 바탕으로<br/>
+            <b>더 세부적으로 분석하여 곧 연락드리겠습니다.</b>
           </p>
           <div style={{marginTop:'20px'}}>
              <p style={{fontSize:'13px', color:'#94a3b8', marginBottom:'10px'}}>기다리기 어려우시다면?</p>
@@ -193,5 +214,6 @@ const styles: any = {
   formTitle: { color: '#fbbf24', fontSize: '20px', fontWeight: '900', textAlign: 'center' },
   selectInput: { padding: '16px', borderRadius: '14px', fontSize: '15px', border: 'none', background: '#fff' },
   submitBtn: { background: '#fbbf24', color: '#1e293b', border: 'none', padding: '18px', borderRadius: '14px', fontSize: '16px', fontWeight: '900', marginTop: '10px' },
-  callBtn: { display: 'block', background: '#1e293b', color: '#fff', textDecoration: 'none', padding: '18px', borderRadius: '16px', fontWeight: 'bold', fontSize: '18px' }
+  callBtn: { display: 'block', background: '#1e293b', color: '#fff', textDecoration: 'none', padding: '18px', borderRadius: '16px', fontWeight: 'bold', fontSize: '18px' },
+  prevBtn: { background: '#e2e8f0', color: '#475569', border: 'none', padding: '18px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '80px' }
 };
