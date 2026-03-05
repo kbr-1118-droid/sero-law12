@@ -87,6 +87,12 @@ export default function App() {
       alert('모든 경제 상황 항목을 입력해주세요.');
       return;
     }
+
+    if (!attachedFile) {
+      alert('NICE 신용정보 파일을 첨부해주세요.');
+      return;
+    }
+
     const inc = num(income);
     const dbt = num(debt) * 10000;
     const ast = num(assets) * 10000;
@@ -186,11 +192,11 @@ export default function App() {
           </h1>
           <p style={s.sub}>
             변호사가 검토하는 2026 최신 기준 리포트.<br />
-            <b>신청해주시면 순차적으로 연락드립니다.</b>
+            <b>지금 바로 내 사건의 해결책을 확인하세요.</b>
           </p>
           <div style={s.trustBox}>
             <div style={s.trustItem}>✅ <b>회생법원 2026 실무준칙</b> 성공사례 적용</div>
-            <div style={s.trustItem}>✅ <b>신속 상담</b> 신청 순서대로 빠른 연락</div>
+            <div style={s.trustItem}>✅ <b>1:1 분석</b> 나에게 딱 맞는 맞춤형 솔루션</div>
             <div style={s.trustItem}>✅ <b>비밀보장</b> 가족/직장 모르게 철저 보안</div>
           </div>
           <button style={s.mainBtn} onClick={() => setScreen('step1')}>
@@ -268,7 +274,7 @@ export default function App() {
             <div style={s.krw}>{krw(num(assets) * 10000)}</div>
           </div>
           <div style={s.group}>
-            <label style={s.label}>NICE 신용정보 첨부 (선택)</label>
+            <label style={s.label}>NICE 신용정보 첨부 (필수)</label>
             
             {/* 드래그 앤 드롭 영역 */}
             <div
