@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 
 // ===== 설정값 =====
 // ⚠️ 중요: 새 구글 시트를 생성했다면, 확장 프로그램 > Apps Script에서 새 스크립트를 배포하고 URL을 교체해야 합니다.
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYY0nuEYXr57p_PggtkrmVJTvVTl2nKgaLZ5or0FBHdUPXssp3VTEH5-YHvbI4aUrR/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwLOdMcY_A1qe6Ud2eqULEkd-_eyaik5Emh0iSm9BvkX4UQl_4ZFJEUtBih9_oGnbMg/exec';
 const CLOUDINARY_CLOUD_NAME = 'deyljykwb';
 // ⚠️ 중요: Cloudinary 설정 > Upload > Upload presets > 'yucylwb1' 편집 > Access Mode를 'Public'으로 설정해야 링크가 열립니다.
 const CLOUDINARY_UPLOAD_PRESET = 'yucylwb1';
 // ==================
 
-type Screen = 'intro' | 'step1' | 'step2' | 'result' | 'done';
+type Screen = 'intro' | 'step0' | 'step1' | 'step2' | 'result' | 'done';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('intro');
@@ -20,6 +20,8 @@ export default function App() {
   const [assets, setAssets] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [managerName, setManagerName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [callTime, setCallTime] = useState('언제든 가능');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false); // 드래그 상태
@@ -159,7 +161,8 @@ export default function App() {
         "NICE신용정보": niceUrl,
         "나이스정보": niceUrl, // 추가: 헤더 호환성용
         "niceFile": niceUrl,   // 추가: 레거시 호환성용
-        "유입경로": "하이브_새로회생_자가진단",
+        "담당자": managerName,
+        "유입경로": companyName,
       };
 
       await fetch(SCRIPT_URL, {
@@ -199,11 +202,50 @@ export default function App() {
             <div style={s.trustItem}>✅ <b>1:1 분석</b> 나에게 딱 맞는 맞춤형 솔루션</div>
             <div style={s.trustItem}>✅ <b>비밀보장</b> 가족/직장 모르게 철저 보안</div>
           </div>
-          <button style={s.mainBtn} onClick={() => setScreen('step1')}>
+          <button style={s.mainBtn} onClick={() => setScreen('step0')}>
             무료 자가진단 시작하기
           </button>
           <div style={{ textAlign: 'center', color: '#64748b', fontSize: '14px', fontWeight: 'bold' }}>
             대표번호: 📞 1551-7473
+          </div>
+        </div>
+      )}
+
+      {/* 담당자 정보 입력 (Step 0) */}
+      {screen === 'step0' && (
+        <div style={s.screen}>
+          <h2 style={s.stepTitle}>담당자 정보 입력</h2>
+          <div style={s.group}>
+            <label style={s.label}>담당자 성함</label>
+            <input
+              type="text"
+              style={s.input}
+              placeholder="담당자 성함을 입력하세요"
+              value={managerName}
+              onChange={e => setManagerName(e.target.value)}
+            />
+          </div>
+          <div style={s.group}>
+            <label style={s.label}>회사명</label>
+            <input
+              type="text"
+              style={s.input}
+              placeholder="회사명을 입력하세요"
+              value={companyName}
+              onChange={e => setCompanyName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button style={s.prevBtn} onClick={() => setScreen('intro')}>이전</button>
+            <button style={{ ...s.mainBtn, flex: 1 }} onClick={() => {
+              if (!managerName || !companyName) {
+                alert('담당자 성함과 회사명을 모두 입력해주세요.');
+                return;
+              }
+              setScreen('step1');
+            }}>
+              다음 단계로
+            </button>
           </div>
         </div>
       )}
@@ -231,7 +273,7 @@ export default function App() {
             />
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button style={s.prevBtn} onClick={() => setScreen('intro')}>이전</button>
+            <button style={s.prevBtn} onClick={() => setScreen('step0')}>이전</button>
             <button style={{ ...s.mainBtn, flex: 1 }} onClick={() => setScreen('step2')}>
               다음 단계로
             </button>
@@ -388,6 +430,7 @@ export default function App() {
               setScreen('intro');
               setIncome(''); setDebt(''); setAssets('');
               setContactName(''); setContactPhone('');
+              setManagerName(''); setCompanyName('');
               setAttachedFile(null);
               setMarital('미혼'); setChildrenCount(''); // 초기화 시 빈 문자열
             }}>
