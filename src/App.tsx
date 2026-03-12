@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 
 // ===== 설정값 =====
-// ⚠️ 중요: 새 구글 시트를 생성했다면, 확장 프로그램 > Apps Script에서 새 스크립트를 배포하고 URL을 교체해야 합니다.
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwLOdMcY_A1qe6Ud2eqULEkd-_eyaik5Emh0iSm9BvkX4UQl_4ZFJEUtBih9_oGnbMg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwIy9n3PUDmnzxHZ9VxSeGrVCOVL3_HTD-TpYeprlCPqbOiAdy-QTa0C3BZQzyHMvR_Q/exec';
 const CLOUDINARY_CLOUD_NAME = 'deyljykwb';
-// ⚠️ 중요: Cloudinary 설정 > Upload > Upload presets > 'yucylwb1' 편집 > Access Mode를 'Public'으로 설정해야 링크가 열립니다.
 const CLOUDINARY_UPLOAD_PRESET = 'yucylwb1';
 // ==================
+
+const PACKAGES = [
+  { name: '스마트 Smart', price: '4,400,000원', desc: '개인회생 신청 핵심 서비스' },
+  { name: '스탠다드 Standard', price: '6,600,000원', desc: '서류대행 + 가압류방어 3회 포함' },
+  { name: '올 케어 All care', price: '8,800,000원', desc: '재접수·파산전환 무한 케어' },
+];
 
 type Screen = 'intro' | 'step0' | 'step1' | 'step2' | 'result' | 'done';
 
@@ -14,7 +18,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('intro');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [marital, setMarital] = useState('미혼');
-  const [childrenCount, setChildrenCount] = useState(''); // 문자열로 변경하여 빈 값 허용
+  const [childrenCount, setChildrenCount] = useState('');
   const [income, setIncome] = useState('');
   const [debt, setDebt] = useState('');
   const [assets, setAssets] = useState('');
@@ -24,8 +28,8 @@ export default function App() {
   const [companyName, setCompanyName] = useState('');
   const [callTime, setCallTime] = useState('언제든 가능');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false); // 드래그 상태
-  const [diagnosis, setDiagnosis] = useState({ type: '', desc: '', color: '' });
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState(PACKAGES[0]);
 
   const fmt = (val: string) =>
     val.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -37,7 +41,6 @@ export default function App() {
     return `${eok > 0 ? eok + '억 ' : ''}${man > 0 ? man + '만 ' : ''}원`;
   };
 
-  // 파일 선택 핸들러
   const handleFileSelect = (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
       alert('파일 용량이 너무 큽니다. (10MB 이하만 가능)');
@@ -51,20 +54,10 @@ export default function App() {
     if (file) handleFileSelect(file);
   };
 
-  // 드래그 앤 드롭 핸들러
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const onDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
+  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const onDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); };
   const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+    e.preventDefault(); setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) handleFileSelect(file);
   };
@@ -74,7 +67,6 @@ export default function App() {
     body.append('file', file);
     body.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
     body.append('folder', 'saero_nice');
-    // PDF 등 문서 파일도 올바르게 처리되도록 resource_type 자동 감지
     const res = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
       { method: 'POST', body }
@@ -89,41 +81,10 @@ export default function App() {
       alert('모든 경제 상황 항목을 입력해주세요.');
       return;
     }
-
     if (!attachedFile) {
       alert('NICE 신용정보 파일을 첨부해주세요.');
       return;
     }
-
-    const inc = num(income);
-    const dbt = num(debt) * 10000;
-    const ast = num(assets) * 10000;
-
-    let res = {
-      type: '개인회생 집중 진단',
-      desc: '현재 소득과 채무 구조상 법원을 통한 원금 탕감 가능성이 매우 높습니다.',
-      color: '#2563eb',
-    };
-    if (inc < 1330000) {
-      res = {
-        type: '개인파산/면책 검토',
-        desc: '수입 대비 생계비 부담이 커서 원금 전액 면책이 가능한 파산 절차가 유리할 수 있습니다.',
-        color: '#dc2626',
-      };
-    } else if (ast >= dbt) {
-      res = {
-        type: '신용회복/워크아웃',
-        desc: '보유 재산이 채무보다 많아 회생 기각 우려가 있으니 이자 감면 제도를 우선 추천합니다.',
-        color: '#059669',
-      };
-    } else if (dbt < 15000000) {
-      res = {
-        type: '신용회복/워크아웃 유리',
-        desc: '채무액이 1,500만원 이하인 경우 회생 비용 대비 실익이 적을 수 있어 신용회복위원회 절차가 더 유리할 수 있습니다.',
-        color: '#059669',
-      };
-    }
-    setDiagnosis(res);
     setScreen('result');
   };
 
@@ -136,7 +97,6 @@ export default function App() {
     setIsSubmitting(true);
 
     try {
-      // 1. Cloudinary 파일 업로드
       let niceUrl = '첨부없음';
       if (attachedFile) {
         try {
@@ -146,23 +106,21 @@ export default function App() {
         }
       }
 
-      // 2. 구글 시트 전송
       const payload = {
-        "접수일시": new Date().toLocaleString('ko-KR'),
-        "성함": contactName,
-        "연락처": contactPhone,
+        "접수일시":     new Date().toLocaleString('ko-KR'),
+        "성함":         contactName,
+        "연락처":       contactPhone,
         "희망상담시간": callTime,
-        "결혼여부": marital,
-        "월수입": fmt(income) + '원',
-        "총채무": fmt(debt) + '만원',
-        "재산가치": fmt(assets) + '만원',
-        "부양가족": (childrenCount || '0') + '명',
-        "진단결과": diagnosis.type,
+        "결혼여부":     marital,
+        "월수입":       fmt(income) + '원',
+        "총채무":       fmt(debt) + '만원',
+        "재산가치":     fmt(assets) + '만원',
+        "부양가족":     (childrenCount || '0') + '명',
+        "수임료":       selectedPackage.price,
+        "패키지":       selectedPackage.name,
         "NICE신용정보": niceUrl,
-        "나이스정보": niceUrl, // 추가: 헤더 호환성용
-        "niceFile": niceUrl,   // 추가: 레거시 호환성용
-        "담당자": managerName,
-        "유입경로": companyName,
+        "유입경로":     companyName,
+        "담당자":       managerName,
       };
 
       await fetch(SCRIPT_URL, {
@@ -211,29 +169,38 @@ export default function App() {
         </div>
       )}
 
-      {/* 담당자 정보 입력 (Step 0) */}
+      {/* Step 0: 담당자 정보 + 패키지 선택 */}
       {screen === 'step0' && (
         <div style={s.screen}>
           <h2 style={s.stepTitle}>담당자 정보 입력</h2>
           <div style={s.group}>
             <label style={s.label}>담당자 성함</label>
-            <input
-              type="text"
-              style={s.input}
-              placeholder="담당자 성함을 입력하세요"
-              value={managerName}
-              onChange={e => setManagerName(e.target.value)}
-            />
+            <input type="text" style={s.input} placeholder="담당자 성함을 입력하세요"
+              value={managerName} onChange={e => setManagerName(e.target.value)} />
           </div>
           <div style={s.group}>
             <label style={s.label}>회사명</label>
-            <input
-              type="text"
-              style={s.input}
-              placeholder="회사명을 입력하세요"
-              value={companyName}
-              onChange={e => setCompanyName(e.target.value)}
-            />
+            <input type="text" style={s.input} placeholder="회사명을 입력하세요"
+              value={companyName} onChange={e => setCompanyName(e.target.value)} />
+          </div>
+          <div style={s.group}>
+            <label style={s.label}>수임료 패키지 선택</label>
+            <select style={s.selectInput} value={selectedPackage.name}
+              onChange={e => {
+                const pkg = PACKAGES.find(p => p.name === e.target.value);
+                if (pkg) setSelectedPackage(pkg);
+              }}>
+              {PACKAGES.map(pkg => (
+                <option key={pkg.name} value={pkg.name}>
+                  {pkg.name} — {pkg.price}
+                </option>
+              ))}
+            </select>
+            <div style={s.packageCard}>
+              <div style={s.packageCardName}>{selectedPackage.name}</div>
+              <div style={s.packageCardPrice}>{selectedPackage.price}</div>
+              <div style={s.packageCardDesc}>{selectedPackage.desc}</div>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={s.prevBtn} onClick={() => setScreen('intro')}>이전</button>
@@ -243,14 +210,12 @@ export default function App() {
                 return;
               }
               setScreen('step1');
-            }}>
-              다음 단계로
-            </button>
+            }}>다음 단계로</button>
           </div>
         </div>
       )}
 
-      {/* 1단계 */}
+      {/* Step 1 */}
       {screen === 'step1' && (
         <div style={s.screen}>
           <h2 style={s.stepTitle}>1. 가구 및 부양 상황</h2>
@@ -265,23 +230,17 @@ export default function App() {
           </div>
           <div style={s.group}>
             <label style={s.label}>부양가족 수 (미성년 자녀/부모님)</label>
-            <input
-              type="number" inputMode="numeric" min="0"
-              style={s.input} placeholder="0"
-              value={childrenCount}
-              onChange={e => setChildrenCount(e.target.value)}
-            />
+            <input type="number" inputMode="numeric" min="0" style={s.input} placeholder="0"
+              value={childrenCount} onChange={e => setChildrenCount(e.target.value)} />
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={s.prevBtn} onClick={() => setScreen('step0')}>이전</button>
-            <button style={{ ...s.mainBtn, flex: 1 }} onClick={() => setScreen('step2')}>
-              다음 단계로
-            </button>
+            <button style={{ ...s.mainBtn, flex: 1 }} onClick={() => setScreen('step2')}>다음 단계로</button>
           </div>
         </div>
       )}
 
-      {/* 2단계 */}
+      {/* Step 2 */}
       {screen === 'step2' && (
         <div style={s.screen}>
           <h2 style={s.stepTitle}>2. 경제 상황 진단</h2>
@@ -289,8 +248,7 @@ export default function App() {
             <label style={s.label}>월 평균 수입 (실수령액)</label>
             <div style={{ position: 'relative' }}>
               <input type="text" inputMode="numeric" style={s.input}
-                value={fmt(income)}
-                onChange={e => setIncome(e.target.value.replace(/\D/g, ''))} />
+                value={fmt(income)} onChange={e => setIncome(e.target.value.replace(/\D/g, ''))} />
               <span style={s.unit}>원</span>
             </div>
             <div style={s.krw}>{krw(num(income))}</div>
@@ -299,8 +257,7 @@ export default function App() {
             <label style={s.label}>총 채무 원금 합계 (만원 단위)</label>
             <div style={{ position: 'relative' }}>
               <input type="text" inputMode="numeric" style={s.input}
-                value={fmt(debt)}
-                onChange={e => setDebt(e.target.value.replace(/\D/g, ''))} />
+                value={fmt(debt)} onChange={e => setDebt(e.target.value.replace(/\D/g, ''))} />
               <span style={s.unit}>만원</span>
             </div>
             <div style={s.krw}>{krw(num(debt) * 10000)}</div>
@@ -309,63 +266,38 @@ export default function App() {
             <label style={s.label}>보유 재산 가액 (만원 단위)</label>
             <div style={{ position: 'relative' }}>
               <input type="text" inputMode="numeric" style={s.input}
-                value={fmt(assets)}
-                onChange={e => setAssets(e.target.value.replace(/\D/g, ''))} />
+                value={fmt(assets)} onChange={e => setAssets(e.target.value.replace(/\D/g, ''))} />
               <span style={s.unit}>만원</span>
             </div>
             <div style={s.krw}>{krw(num(assets) * 10000)}</div>
           </div>
           <div style={s.group}>
             <label style={s.label}>NICE 신용정보 첨부 (필수)</label>
-            
-            {/* 드래그 앤 드롭 영역 */}
-            <div
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              onDrop={onDrop}
+            <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
               style={{
-                ...s.input,
-                padding: '20px',
-                textAlign: 'center',
+                ...s.input, padding: '20px', textAlign: 'center',
                 border: isDragging ? '2px dashed #2563eb' : '2px dashed #cbd5e1',
-                background: isDragging ? '#eff6ff' : '#fff',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
+                background: isDragging ? '#eff6ff' : '#fff', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px'
               }}
-              onClick={() => document.getElementById('fileInput')?.click()}
-            >
-              <input
-                id="fileInput"
-                type="file"
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-                onChange={handleFileChange}
-              />
+              onClick={() => document.getElementById('fileInput')?.click()}>
+              <input id="fileInput" type="file" accept="image/*,.pdf"
+                style={{ display: 'none' }} onChange={handleFileChange} />
               <div style={{ fontSize: '24px' }}>📂</div>
               <div style={{ fontSize: '14px', color: '#475569', fontWeight: 'bold' }}>
                 {attachedFile ? (
                   <span style={{ color: '#2563eb' }}>✅ {attachedFile.name}</span>
                 ) : (
-                  <>
-                    클릭하거나 파일을 여기로 드래그하세요<br />
-                    <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'normal' }}>
-                      (이미지, PDF / 10MB 이하)
-                    </span>
+                  <>클릭하거나 파일을 여기로 드래그하세요<br />
+                    <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'normal' }}>(이미지, PDF / 10MB 이하)</span>
                   </>
                 )}
               </div>
             </div>
-
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={s.prevBtn} onClick={() => setScreen('step1')}>이전</button>
-            <button style={{ ...s.mainBtn, flex: 1 }} onClick={runDiagnosis}>
-              진단 리포트 생성
-            </button>
+            <button style={{ ...s.mainBtn, flex: 1 }} onClick={runDiagnosis}>진단 리포트 생성</button>
           </div>
         </div>
       )}
@@ -374,20 +306,27 @@ export default function App() {
       {screen === 'result' && (
         <div style={s.screen}>
           <div style={s.resultCard}>
-            <h2 style={{ ...s.resTitle, color: diagnosis.color }}>{diagnosis.type}</h2>
-            <div style={s.resDesc}>{diagnosis.desc}</div>
+            <div style={s.resultBadge}>📋 진단 완료</div>
+            <h2 style={{ ...s.resTitle, color: '#2563eb' }}>개인회생 가능성 높음</h2>
+            <div style={s.resDesc}>
+              입력하신 내용을 바탕으로 분석한 결과,{' '}
+              <b>개인회생 절차를 통해 채무를 대폭 줄일 수 있는 가능성이 높습니다.</b>
+              <br /><br />
+              정확한 변제금액과 면책 가능 여부는 전문 변호사와의 1:1 상담을 통해 확인해드리겠습니다.
+            </div>
+            <div style={s.resultPackageBox}>
+              <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>선택 패키지</div>
+              <div style={{ fontWeight: '900', fontSize: '16px', color: '#1e293b' }}>{selectedPackage.name}</div>
+              <div style={{ fontWeight: '800', fontSize: '20px', color: '#2563eb', marginTop: '2px' }}>{selectedPackage.price}</div>
+            </div>
           </div>
           <div style={s.formCard}>
             <h4 style={s.formTitle}>📋 상세 분석 리포트 신청</h4>
-            <input type="text" placeholder="성함" style={s.input}
-              value={contactName}
-              onChange={e => setContactName(e.target.value)} />
-            <input type="tel" placeholder="연락처 (숫자만)" style={s.input}
-              value={contactPhone}
-              onChange={e => setContactPhone(e.target.value)} />
-            <select style={s.selectInput}
-              value={callTime}
-              onChange={e => setCallTime(e.target.value)}>
+            <input type="text" placeholder="성함" style={s.inputDark}
+              value={contactName} onChange={e => setContactName(e.target.value)} />
+            <input type="tel" placeholder="연락처 (숫자만)" style={s.inputDark}
+              value={contactPhone} onChange={e => setContactPhone(e.target.value)} />
+            <select style={s.selectInputDark} value={callTime} onChange={e => setCallTime(e.target.value)}>
               <option value="언제든 가능">희망 상담 시간: 언제든</option>
               <option value="오전 (09~12시)">오전 (09~12시)</option>
               <option value="점심 (12~13시)">점심 시간 활용</option>
@@ -395,10 +334,8 @@ export default function App() {
             </select>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button style={s.prevBtn} onClick={() => setScreen('step2')}>이전</button>
-              <button
-                style={{ ...s.submitBtn, flex: 1, marginTop: 0, opacity: isSubmitting ? 0.7 : 1 }}
-                onClick={handleSubmit}
-                disabled={isSubmitting}>
+              <button style={{ ...s.submitBtn, flex: 1, marginTop: 0, opacity: isSubmitting ? 0.7 : 1 }}
+                onClick={handleSubmit} disabled={isSubmitting}>
                 {isSubmitting ? '⏳ 업로드 중...' : '무료 리포트 신청'}
               </button>
             </div>
@@ -419,26 +356,23 @@ export default function App() {
             <b>더 세부적으로 분석하여 곧 연락드리겠습니다.</b>
           </p>
           <div style={{ marginTop: '20px' }}>
-            <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '10px' }}>
-              기다리기 어려우시다면?
-            </p>
+            <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '10px' }}>기다리기 어려우시다면?</p>
             <a href="tel:1551-7473" style={s.callBtn}>📞 1551-7473 즉시 연결</a>
           </div>
-          <button
-            style={{ ...s.mainBtn, marginTop: '20px', background: '#f1f5f9', color: '#475569' }}
+          <button style={{ ...s.mainBtn, marginTop: '20px', background: '#f1f5f9', color: '#475569' }}
             onClick={() => {
               setScreen('intro');
               setIncome(''); setDebt(''); setAssets('');
               setContactName(''); setContactPhone('');
               setManagerName(''); setCompanyName('');
               setAttachedFile(null);
-              setMarital('미혼'); setChildrenCount(''); // 초기화 시 빈 문자열
+              setMarital('미혼'); setChildrenCount('');
+              setSelectedPackage(PACKAGES[0]);
             }}>
             처음으로 돌아가기
           </button>
         </div>
       )}
-
     </div>
   );
 }
@@ -461,12 +395,20 @@ const s: any = {
   grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' },
   sel: { padding: '16px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#fff', fontWeight: '700', cursor: 'pointer' },
   selActive: { padding: '16px', borderRadius: '12px', border: '2px solid #2563eb', background: '#eff6ff', color: '#2563eb', fontWeight: '900', cursor: 'pointer' },
+  selectInput: { padding: '16px', borderRadius: '14px', fontSize: '15px', border: '2px solid #e2e8f0', background: '#fff', width: '100%', fontWeight: '700', color: '#1e293b', outline: 'none', boxSizing: 'border-box' },
+  packageCard: { background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' },
+  packageCardName: { fontSize: '15px', fontWeight: '900', color: '#1e40af' },
+  packageCardPrice: { fontSize: '22px', fontWeight: '900', color: '#2563eb' },
+  packageCardDesc: { fontSize: '13px', color: '#64748b' },
   resultCard: { background: '#fff', padding: '30px', borderRadius: '28px', textAlign: 'center', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' },
+  resultBadge: { display: 'inline-block', background: '#dbeafe', color: '#1d4ed8', padding: '6px 16px', borderRadius: '30px', fontSize: '13px', fontWeight: '800', marginBottom: '8px' },
   resTitle: { fontSize: '26px', fontWeight: '900', margin: '15px 0' },
-  resDesc: { background: '#f8fafc', padding: '20px', borderRadius: '16px', color: '#334155', fontSize: '15px', lineHeight: '1.6' },
+  resDesc: { background: '#f8fafc', padding: '20px', borderRadius: '16px', color: '#334155', fontSize: '15px', lineHeight: '1.6', textAlign: 'left' },
+  resultPackageBox: { marginTop: '16px', background: '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '14px', padding: '16px', textAlign: 'center' },
   formCard: { background: '#1e293b', padding: '28px', borderRadius: '28px', display: 'flex', flexDirection: 'column', gap: '12px' },
   formTitle: { color: '#fbbf24', fontSize: '20px', fontWeight: '900', textAlign: 'center' },
-  selectInput: { padding: '16px', borderRadius: '14px', fontSize: '15px', border: 'none', background: '#fff' },
+  inputDark: { width: '100%', padding: '18px', borderRadius: '14px', border: '2px solid #334155', fontSize: '17px', fontWeight: '700', outline: 'none', boxSizing: 'border-box', background: '#0f172a', color: '#f1f5f9' },
+  selectInputDark: { padding: '16px', borderRadius: '14px', fontSize: '15px', border: '2px solid #334155', background: '#0f172a', color: '#f1f5f9', width: '100%', fontWeight: '700', outline: 'none', boxSizing: 'border-box' },
   submitBtn: { background: '#fbbf24', color: '#1e293b', border: 'none', padding: '18px', borderRadius: '14px', fontSize: '16px', fontWeight: '900', cursor: 'pointer' },
   callBtn: { display: 'block', background: '#1e293b', color: '#fff', textDecoration: 'none', padding: '18px', borderRadius: '16px', fontWeight: 'bold', fontSize: '18px' },
   prevBtn: { background: '#e2e8f0', color: '#475569', border: 'none', padding: '18px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '80px' },
