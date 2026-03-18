@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 // ===== 설정값 =====
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxf1u6-2AhOE3J99DwcRxQhaUpkoutDaBscU9UxHRfiKtJY-jsFye93qK2qP6LotmZw1Q/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsup2LDpGVyizPFDxGYSzw1sprCMgN5HNd8z1AYqmfCIFpMT4ggCrMnaK3pQz76rPvjQ/exec';
 const CLOUDINARY_CLOUD_NAME = 'deyljykwb';
 const CLOUDINARY_UPLOAD_PRESET = 'yucylwb1';
 // ==================
@@ -21,7 +21,6 @@ export default function App() {
   const [childrenCount, setChildrenCount] = useState('');
   const [income, setIncome] = useState('');
   const [debt, setDebt] = useState('');
-  const [assets, setAssets] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [managerName, setManagerName] = useState('');
@@ -30,6 +29,13 @@ export default function App() {
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState(PACKAGES[0]);
+
+  // 거주형태 관련
+  const [housingType, setHousingType] = useState('');
+  const [deposit, setDeposit] = useState('');
+  const [housePrice, setHousePrice] = useState('');
+  const [mortgage, setMortgage] = useState('');
+  const [spouseIncluded, setSpouseIncluded] = useState('미포함');
 
   const fmt = (val: string) =>
     val.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -77,8 +83,12 @@ export default function App() {
   };
 
   const runDiagnosis = () => {
-    if (!income || !debt || !assets) {
-      alert('모든 경제 상황 항목을 입력해주세요.');
+    if (!income || !debt) {
+      alert('월수입과 총채무를 입력해주세요.');
+      return;
+    }
+    if (!housingType) {
+      alert('거주형태를 선택해주세요.');
       return;
     }
     if (!attachedFile) {
@@ -107,20 +117,24 @@ export default function App() {
       }
 
       const payload = {
-        "접수일시":     new Date().toLocaleString('ko-KR'),
-        "성함":         contactName,
-        "연락처":       contactPhone,
-        "희망상담시간": callTime,
-        "결혼여부":     marital,
-        "월수입":       fmt(income) + '원',
-        "총채무":       fmt(debt) + '만원',
-        "재산가치":     fmt(assets) + '만원',
-        "부양가족":     (childrenCount || '0') + '명',
-        "수임료":       selectedPackage.price,
-        "패키지":       selectedPackage.name,
-        "NICE신용정보": niceUrl,
-        "유입경로":     companyName,
-        "담당자":       managerName,
+        "접수일시":       new Date().toLocaleString('ko-KR'),
+        "성함":           contactName,
+        "연락처":         contactPhone,
+        "희망상담시간":   callTime,
+        "결혼여부":       marital,
+        "월수입":         fmt(income) + '만원',
+        "총채무":         fmt(debt) + '만원',
+        "거주형태":       housingType,
+        "보증금":         housingType !== '자가' ? (fmt(deposit) + '만원') : '-',
+        "시세":           housingType === '자가' ? (fmt(housePrice) + '만원') : '-',
+        "담보채무":       housingType === '자가' ? (fmt(mortgage) + '만원') : '-',
+        "배우자명의포함": spouseIncluded,
+        "부양가족":       (childrenCount || '0') + '명',
+        "수임료":         selectedPackage.price,
+        "패키지":         selectedPackage.name,
+        "NICE신용정보":   niceUrl,
+        "유입경로":       companyName,
+        "담당자":         managerName,
       };
 
       await fetch(SCRIPT_URL, {
@@ -244,15 +258,19 @@ export default function App() {
       {screen === 'step2' && (
         <div style={s.screen}>
           <h2 style={s.stepTitle}>2. 경제 상황 진단</h2>
+
+          {/* 월수입 */}
           <div style={s.group}>
-            <label style={s.label}>월 평균 수입 (실수령액)</label>
+            <label style={s.label}>월 평균 수입 (실수령액, 만원 단위)</label>
             <div style={{ position: 'relative' }}>
               <input type="text" inputMode="numeric" style={s.input}
                 value={fmt(income)} onChange={e => setIncome(e.target.value.replace(/\D/g, ''))} />
-              <span style={s.unit}>원</span>
+              <span style={s.unit}>만원</span>
             </div>
-            <div style={s.krw}>{krw(num(income))}</div>
+            <div style={s.krw}>{krw(num(income) * 10000)}</div>
           </div>
+
+          {/* 총채무 */}
           <div style={s.group}>
             <label style={s.label}>총 채무 원금 합계 (만원 단위)</label>
             <div style={{ position: 'relative' }}>
@@ -262,15 +280,76 @@ export default function App() {
             </div>
             <div style={s.krw}>{krw(num(debt) * 10000)}</div>
           </div>
+
+          {/* 거주형태 */}
           <div style={s.group}>
-            <label style={s.label}>보유 재산 가액 (만원 단위)</label>
-            <div style={{ position: 'relative' }}>
-              <input type="text" inputMode="numeric" style={s.input}
-                value={fmt(assets)} onChange={e => setAssets(e.target.value.replace(/\D/g, ''))} />
-              <span style={s.unit}>만원</span>
+            <label style={s.label}>거주형태</label>
+            <div style={s.grid3}>
+              {['자가', '전세', '월세'].map(v => (
+                <button key={v} onClick={() => { setHousingType(v); setDeposit(''); setHousePrice(''); setMortgage(''); }}
+                  style={housingType === v ? s.selActive : s.sel}>{v}</button>
+              ))}
             </div>
-            <div style={s.krw}>{krw(num(assets) * 10000)}</div>
           </div>
+
+          {/* 자가 선택 시 */}
+          {housingType === '자가' && (
+            <>
+              <div style={s.group}>
+                <label style={s.label}>배우자 명의 포함 여부</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {['포함', '미포함'].map(v => (
+                    <button key={v} onClick={() => setSpouseIncluded(v)}
+                      style={spouseIncluded === v ? s.selActive : s.sel}>{v}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={s.group}>
+                <label style={s.label}>부동산 시세 (만원 단위)</label>
+                <div style={{ position: 'relative' }}>
+                  <input type="text" inputMode="numeric" style={s.input}
+                    value={fmt(housePrice)} onChange={e => setHousePrice(e.target.value.replace(/\D/g, ''))} />
+                  <span style={s.unit}>만원</span>
+                </div>
+                <div style={s.krw}>{krw(num(housePrice) * 10000)}</div>
+              </div>
+              <div style={s.group}>
+                <label style={s.label}>담보채무 금액 (만원 단위)</label>
+                <div style={{ position: 'relative' }}>
+                  <input type="text" inputMode="numeric" style={s.input}
+                    value={fmt(mortgage)} onChange={e => setMortgage(e.target.value.replace(/\D/g, ''))} />
+                  <span style={s.unit}>만원</span>
+                </div>
+                <div style={s.krw}>{krw(num(mortgage) * 10000)}</div>
+              </div>
+            </>
+          )}
+
+          {/* 전세/월세 선택 시 */}
+          {(housingType === '전세' || housingType === '월세') && (
+            <>
+              <div style={s.group}>
+                <label style={s.label}>배우자 명의 포함 여부</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {['포함', '미포함'].map(v => (
+                    <button key={v} onClick={() => setSpouseIncluded(v)}
+                      style={spouseIncluded === v ? s.selActive : s.sel}>{v}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={s.group}>
+                <label style={s.label}>보증금 (만원 단위)</label>
+                <div style={{ position: 'relative' }}>
+                  <input type="text" inputMode="numeric" style={s.input}
+                    value={fmt(deposit)} onChange={e => setDeposit(e.target.value.replace(/\D/g, ''))} />
+                  <span style={s.unit}>만원</span>
+                </div>
+                <div style={s.krw}>{krw(num(deposit) * 10000)}</div>
+              </div>
+            </>
+          )}
+
+          {/* NICE 첨부 */}
           <div style={s.group}>
             <label style={s.label}>NICE 신용정보 첨부 (필수)</label>
             <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
@@ -295,6 +374,7 @@ export default function App() {
               </div>
             </div>
           </div>
+
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={s.prevBtn} onClick={() => setScreen('step1')}>이전</button>
             <button style={{ ...s.mainBtn, flex: 1 }} onClick={runDiagnosis}>진단 리포트 생성</button>
@@ -362,11 +442,14 @@ export default function App() {
           <button style={{ ...s.mainBtn, marginTop: '20px', background: '#f1f5f9', color: '#475569' }}
             onClick={() => {
               setScreen('intro');
-              setIncome(''); setDebt(''); setAssets('');
+              setIncome(''); setDebt('');
               setContactName(''); setContactPhone('');
               setManagerName(''); setCompanyName('');
               setAttachedFile(null);
               setMarital('미혼'); setChildrenCount('');
+              setHousingType(''); setDeposit('');
+              setHousePrice(''); setMortgage('');
+              setSpouseIncluded('미포함');
               setSelectedPackage(PACKAGES[0]);
             }}>
             처음으로 돌아가기
