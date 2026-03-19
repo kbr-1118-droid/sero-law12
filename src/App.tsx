@@ -328,7 +328,7 @@ export default function App() {
           </div>
 
           <div style={s.group}>
-            <label style={s.label}>거주형태</label>
+            <label style={s.label}>거주형태 (배우자 명의 포함)</label>
             <div style={s.grid3}>
               {['자가', '전세', '월세'].map(v => (
                 <button key={v}
@@ -341,7 +341,7 @@ export default function App() {
           {housingType === '자가' && (
             <>
               <div style={s.group}>
-                <label style={s.label}>부동산 시세 · 배우자 명의 포함 (만원 단위)</label>
+                <label style={s.label}>부동산 시세 (만원 단위)</label>
                 <div style={{ position: 'relative' }}>
                   <input type="text" inputMode="numeric" style={s.input}
                     value={fmt(housePrice)} onChange={e => setHousePrice(e.target.value.replace(/\D/g, ''))} />
@@ -350,7 +350,7 @@ export default function App() {
                 <div style={s.krw}>{krw(num(housePrice) * 10000)}</div>
               </div>
               <div style={s.group}>
-                <label style={s.label}>담보채무 · 배우자 명의 포함 (만원 단위)</label>
+                <label style={s.label}>담보채무 (만원 단위)</label>
                 <div style={{ position: 'relative' }}>
                   <input type="text" inputMode="numeric" style={s.input}
                     value={fmt(mortgage)} onChange={e => setMortgage(e.target.value.replace(/\D/g, ''))} />
@@ -363,7 +363,7 @@ export default function App() {
 
           {(housingType === '전세' || housingType === '월세') && (
             <div style={s.group}>
-              <label style={s.label}>보증금 · 배우자 명의 포함 (만원 단위)</label>
+              <label style={s.label}>보증금 (만원 단위)</label>
               <div style={{ position: 'relative' }}>
                 <input type="text" inputMode="numeric" style={s.input}
                   value={fmt(deposit)} onChange={e => setDeposit(e.target.value.replace(/\D/g, ''))} />
