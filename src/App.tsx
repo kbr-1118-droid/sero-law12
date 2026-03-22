@@ -8,6 +8,12 @@ const CLOUDINARY_UPLOAD_PRESET = 'yucylwb1';
 // 회사 목록 (추가 시 여기에 추가)
 const COMPANY_LIST = ['애드', '플라'];
 
+// ★ 신규: 회사별 팀 목록
+const TEAM_LIST: Record<string, string[]> = {
+  '애드': ['이지','행복','희망','다온','나무','드림','조은','이룸','위너','영광','위비','리더','제니'],
+  '플라': ['에스엠','나누미','더나눔','베품','미라클','빅토리','더쉴','비상','라온','챌린저'],
+};
+
 const PACKAGES = [
   { name: '스마트 Smart',    price: '4,400,000원', desc: '개인회생 신청 핵심 서비스' },
   { name: '스탠다드 Standard', price: '6,600,000원', desc: '서류대행 + 가압류방어 3회 포함' },
@@ -15,6 +21,15 @@ const PACKAGES = [
 ];
 
 type Screen = 'intro' | 'step0' | 'step1' | 'step2' | 'result' | 'done';
+
+// ★ 신규: 전화번호 자동 포맷팅
+const formatPhone = (val: string): string => {
+  let digits = val.replace(/\D/g, '');
+  if (digits.length === 10 && digits[0] !== '0') digits = '0' + digits;
+  if (digits.length === 11) return digits.slice(0,3) + '-' + digits.slice(3,7) + '-' + digits.slice(7);
+  if (digits.length === 10) return digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
+  return digits;
+};
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('intro');
@@ -38,13 +53,16 @@ export default function App() {
   const [mortgage, setMortgage]       = useState('');
 
   // 담당자 정보
-  const [managerName, setManagerName]   = useState('');
-  const [companyName, setCompanyName]   = useState('');
+  const [managerName, setManagerName]       = useState('');
+  const [companyName, setCompanyName]       = useState('');
+  const [teamName, setTeamName]             = useState('');  // ★ 신규: 소속팀
   const [selectedPackage, setSelectedPackage] = useState(PACKAGES[0]);
 
+  // ★ 신규: 면책기간 + 특이사항
+  const [exemptionStatus, setExemptionStatus] = useState('없음');
+  const [memo, setMemo] = useState('');
+
   // ===== 비밀번호 계산 =====
-  // GAS와 동일한 규칙: 이름이니셜 + - + 회사코드 + - + 1234
-  // 예) 김범우 + 애드 → bw-ad-1234
   const COMPANY_CODE_MAP: Record<string, string> = { '애드': 'ad', '플라': 'pl' };
   const INITIAL_MAP: Record<string, string> = {
     'ㄱ':'g','ㄴ':'n','ㄷ':'d','ㄹ':'r','ㅁ':'m','ㅂ':'b','ㅅ':'s','ㅇ':'w',
@@ -88,9 +106,9 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) handleFileSelect(file);
   };
-  const onDragOver  = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const onDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); };
-  const onDrop      = (e: React.DragEvent) => {
+  const onDrop = (e: React.DragEvent) => {
     e.preventDefault(); setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) handleFileSelect(file);
@@ -146,6 +164,9 @@ export default function App() {
         }
       }
 
+      // ★ 수정: 유입경로를 "회사-팀명" 형식으로 조합
+      const sourceValue = teamName ? (companyName + '-' + teamName) : companyName;
+
       const payload = {
         "접수일시":     new Date().toLocaleString('ko-KR'),
         "성함":         contactName,
@@ -162,8 +183,10 @@ export default function App() {
         "수임료":       selectedPackage.price,
         "패키지":       selectedPackage.name,
         "NICE신용정보": niceUrl,
-        "유입경로":     companyName,
+        "유입경로":     sourceValue,          // ★ 수정: "애드-이지" 형식
         "담당자":       managerName.trim(),
+        "면책기간":     exemptionStatus,      // ★ 신규
+        "특이사항":     memo,                  // ★ 신규
       };
 
       await fetch(SCRIPT_URL, {
@@ -187,12 +210,15 @@ export default function App() {
     setIncome(''); setDebt('');
     setContactName(''); setContactPhone('');
     setManagerName(''); setCompanyName('');
+    setTeamName('');                          // ★ 신규
     setAttachedFile(null);
     setMarital('미혼'); setChildrenCount('');
     setHousingType(''); setDeposit('');
     setHousePrice(''); setMortgage('');
     setSelectedPackage(PACKAGES[0]);
     setCallTime('언제든 가능');
+    setExemptionStatus('없음');              // ★ 신규
+    setMemo('');                              // ★ 신규
   };
 
   return (
@@ -221,7 +247,7 @@ export default function App() {
             무료 자가진단 시작하기
           </button>
           <div style={{ textAlign: 'center', color: '#64748b', fontSize: '14px', fontWeight: 'bold' }}>
-            대표번호: 📞 1551-7473
+            대표번호: 1551-7473
           </div>
         </div>
       )}
@@ -238,13 +264,28 @@ export default function App() {
           <div style={s.group}>
             <label style={s.label}>회사명</label>
             <select style={s.selectInput} value={companyName}
-              onChange={e => setCompanyName(e.target.value)}>
+              onChange={e => { setCompanyName(e.target.value); setTeamName(''); }}>
               <option value="">회사명을 선택하세요</option>
               {COMPANY_LIST.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
+
+          {/* ★ 신규: 소속팀 선택 (회사 선택 후 나타남) */}
+          {companyName && TEAM_LIST[companyName] && (
+            <div style={s.group}>
+              <label style={s.label}>소속팀</label>
+              <select style={s.selectInput} value={teamName}
+                onChange={e => setTeamName(e.target.value)}>
+                <option value="">팀을 선택하세요</option>
+                {TEAM_LIST[companyName].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={s.group}>
             <label style={s.label}>수임료 패키지 선택</label>
             <select style={s.selectInput} value={selectedPackage.name}
@@ -271,6 +312,10 @@ export default function App() {
                 alert('담당자 성함과 회사명을 모두 입력해주세요.');
                 return;
               }
+              if (TEAM_LIST[companyName] && !teamName) {
+                alert('소속팀을 선택해주세요.');
+                return;
+              }
               setScreen('step1');
             }}>다음 단계로</button>
           </div>
@@ -295,6 +340,18 @@ export default function App() {
             <input type="number" inputMode="numeric" min="0" style={s.input} placeholder="0"
               value={childrenCount} onChange={e => setChildrenCount(e.target.value)} />
           </div>
+
+          {/* ★ 신규: 면책기간 선택 */}
+          <div style={s.group}>
+            <label style={s.label}>과거 개인회생/파산 면책 이력</label>
+            <div style={s.grid3}>
+              {['없음', '5년 이상 경과', '5년 미만'].map(v => (
+                <button key={v} onClick={() => setExemptionStatus(v)}
+                  style={exemptionStatus === v ? s.selActive : s.sel}>{v}</button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={s.prevBtn} onClick={() => setScreen('step0')}>이전</button>
             <button style={{ ...s.mainBtn, flex: 1 }} onClick={() => setScreen('step2')}>다음 단계로</button>
@@ -392,7 +449,7 @@ export default function App() {
                   <span style={{ color: '#2563eb' }}>✅ {attachedFile.name}</span>
                 ) : (
                   <>클릭하거나 파일을 여기로 드래그하세요<br />
-                    <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'normal' }}>(이미지, PDF / 10MB 이하)</span>
+                  <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'normal' }}>(이미지, PDF / 10MB 이하)</span>
                   </>
                 )}
               </div>
@@ -410,7 +467,7 @@ export default function App() {
       {screen === 'result' && (
         <div style={s.screen}>
           <div style={s.resultCard}>
-            <div style={s.resultBadge}>📋 진단 완료</div>
+            <div style={s.resultBadge}>진단 완료</div>
             <h2 style={{ ...s.resTitle, color: '#2563eb' }}>개인회생 가능성 높음</h2>
             <div style={s.resDesc}>
               입력하신 내용을 바탕으로 분석한 결과,{' '}
@@ -425,29 +482,45 @@ export default function App() {
             </div>
           </div>
           <div style={s.formCard}>
-            <h4 style={s.formTitle}>📋 상세 분석 리포트 신청</h4>
+            <h4 style={s.formTitle}>상세 분석 리포트 신청</h4>
             <input type="text" placeholder="성함" style={s.inputDark}
               value={contactName} onChange={e => setContactName(e.target.value)} />
-            <input type="tel" placeholder="연락처 (숫자만)" style={s.inputDark}
-              value={contactPhone} onChange={e => setContactPhone(e.target.value)} />
+
+            {/* ★ 수정: 전화번호 자동 포맷팅 */}
+            <input type="tel" placeholder="연락처 (숫자만 입력)" style={s.inputDark}
+              value={contactPhone}
+              onChange={e => {
+                const raw = e.target.value.replace(/\D/g, '');
+                setContactPhone(raw);
+              }}
+              onBlur={() => {
+                if (contactPhone) setContactPhone(formatPhone(contactPhone));
+              }} />
+
             <select style={s.selectInputDark} value={callTime} onChange={e => setCallTime(e.target.value)}>
               <option value="언제든 가능">희망 상담 시간: 언제든</option>
               <option value="오전 (09~12시)">오전 (09~12시)</option>
               <option value="점심 (12~13시)">점심 시간 활용</option>
               <option value="오후 (13~18시)">오후 (13~18시)</option>
             </select>
+
+            {/* ★ 신규: 특이사항 입력란 */}
+            <textarea placeholder={"특이사항 (선택사항)\n예: 오후 3시 이후 통화 가능, 카드 진행 예정 등"}
+              style={{...s.inputDark, minHeight: '80px', resize: 'vertical' as const}}
+              value={memo} onChange={e => setMemo(e.target.value)} />
+
             <div style={{ display: 'flex', gap: '10px' }}>
               <button style={s.prevBtn} onClick={() => setScreen('step2')}>이전</button>
               <button
                 style={{ ...s.submitBtn, flex: 1, marginTop: 0, opacity: isSubmitting ? 0.7 : 1 }}
                 onClick={handleSubmit}
                 disabled={isSubmitting}>
-                {isSubmitting ? '⏳ 업로드 중...' : '무료 리포트 신청'}
+                {isSubmitting ? '업로드 중...' : '무료 리포트 신청'}
               </button>
             </div>
           </div>
           <p style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8' }}>
-            🔒 모든 정보는 법률에 의해 비밀이 보장됩니다.
+            모든 정보는 법률에 의해 비밀이 보장됩니다.
           </p>
         </div>
       )}
@@ -468,12 +541,11 @@ export default function App() {
             borderRadius: '16px', padding: '20px', marginTop: '8px', textAlign: 'left'
           }}>
             <div style={{ fontSize: '14px', fontWeight: '800', color: '#1e40af', marginBottom: '8px' }}>
-              🔐 상담 현황판 로그인 정보
+              상담 현황판 로그인 정보
             </div>
             <div style={{ fontSize: '13px', color: '#334155', lineHeight: '1.8' }}>
               <b>담당자명:</b> {managerName}<br />
               <b>회사명:</b> {companyName}<br />
-              {/* ✅ 수정: 회사명 첫글자 + 이름 마지막글자 + 1234 (GAS와 동일) */}
               <b>초기 비밀번호:</b>{' '}
               <span style={{ color: '#2563eb', fontWeight: '900', fontSize: '16px' }}>
                 {calcInitialPw()}
@@ -486,7 +558,7 @@ export default function App() {
 
           <div style={{ marginTop: '16px' }}>
             <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '10px' }}>기다리기 어려우시다면?</p>
-            <a href="tel:1551-7473" style={s.callBtn}>📞 1551-7473 즉시 연결</a>
+            <a href="tel:1551-7473" style={s.callBtn}>1551-7473 즉시 연결</a>
           </div>
           <button
             style={{ ...s.mainBtn, marginTop: '20px', background: '#f1f5f9', color: '#475569' }}
@@ -500,38 +572,38 @@ export default function App() {
 }
 
 const s: any = {
-  wrap:            { maxWidth: '480px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: 'Pretendard, sans-serif' },
-  screen:          { padding: '40px 24px', display: 'flex', flexDirection: 'column', gap: '24px' },
-  badge:           { background: '#e2e8f0', color: '#475569', padding: '6px 14px', borderRadius: '30px', fontSize: '12px', fontWeight: '800' },
-  title:           { fontSize: '32px', fontWeight: '900', color: '#0f172a', lineHeight: '1.2' },
-  sub:             { fontSize: '16px', color: '#64748b', lineHeight: '1.5' },
-  trustBox:        { display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' },
-  trustItem:       { fontSize: '14px', color: '#334155' },
-  mainBtn:         { background: '#2563eb', color: '#fff', border: 'none', padding: '20px', borderRadius: '16px', fontSize: '18px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 10px 20px -5px rgba(37,99,235,0.4)' },
-  stepTitle:       { fontSize: '22px', fontWeight: '800', color: '#1e293b' },
-  group:           { display: 'flex', flexDirection: 'column', gap: '10px' },
-  label:           { fontSize: '14px', fontWeight: '700', color: '#475569' },
-  input:           { width: '100%', padding: '18px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', outline: 'none', boxSizing: 'border-box', background: '#fff', color: '#1e293b' },
-  unit:            { position: 'absolute', right: '18px', top: '50%', transform: 'translateY(-50%)', fontWeight: '800', color: '#94a3b8' },
-  krw:             { textAlign: 'right', fontSize: '13px', color: '#2563eb', fontWeight: '800' },
-  grid3:           { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' },
-  sel:             { padding: '16px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#fff', fontWeight: '700', cursor: 'pointer' },
-  selActive:       { padding: '16px', borderRadius: '12px', border: '2px solid #2563eb', background: '#eff6ff', color: '#2563eb', fontWeight: '900', cursor: 'pointer' },
-  selectInput:     { padding: '16px', borderRadius: '14px', fontSize: '15px', border: '2px solid #e2e8f0', background: '#fff', width: '100%', fontWeight: '700', color: '#1e293b', outline: 'none', boxSizing: 'border-box' },
-  packageCard:     { background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' },
+  wrap: { maxWidth: '480px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: 'Pretendard, sans-serif' },
+  screen: { padding: '40px 24px', display: 'flex', flexDirection: 'column', gap: '24px' },
+  badge: { background: '#e2e8f0', color: '#475569', padding: '6px 14px', borderRadius: '30px', fontSize: '12px', fontWeight: '800' },
+  title: { fontSize: '32px', fontWeight: '900', color: '#0f172a', lineHeight: '1.2' },
+  sub: { fontSize: '16px', color: '#64748b', lineHeight: '1.5' },
+  trustBox: { display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' },
+  trustItem: { fontSize: '14px', color: '#334155' },
+  mainBtn: { background: '#2563eb', color: '#fff', border: 'none', padding: '20px', borderRadius: '16px', fontSize: '18px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 10px 20px -5px rgba(37,99,235,0.4)' },
+  stepTitle: { fontSize: '22px', fontWeight: '800', color: '#1e293b' },
+  group: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  label: { fontSize: '14px', fontWeight: '700', color: '#475569' },
+  input: { width: '100%', padding: '18px', borderRadius: '14px', border: '2px solid #e2e8f0', fontSize: '17px', fontWeight: '700', outline: 'none', boxSizing: 'border-box', background: '#fff', color: '#1e293b' },
+  unit: { position: 'absolute', right: '18px', top: '50%', transform: 'translateY(-50%)', fontWeight: '800', color: '#94a3b8' },
+  krw: { textAlign: 'right', fontSize: '13px', color: '#2563eb', fontWeight: '800' },
+  grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' },
+  sel: { padding: '16px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#fff', fontWeight: '700', cursor: 'pointer' },
+  selActive: { padding: '16px', borderRadius: '12px', border: '2px solid #2563eb', background: '#eff6ff', color: '#2563eb', fontWeight: '900', cursor: 'pointer' },
+  selectInput: { padding: '16px', borderRadius: '14px', fontSize: '15px', border: '2px solid #e2e8f0', background: '#fff', width: '100%', fontWeight: '700', color: '#1e293b', outline: 'none', boxSizing: 'border-box' },
+  packageCard: { background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' },
   packageCardName: { fontSize: '15px', fontWeight: '900', color: '#1e40af' },
   packageCardPrice:{ fontSize: '22px', fontWeight: '900', color: '#2563eb' },
   packageCardDesc: { fontSize: '13px', color: '#64748b' },
-  resultCard:      { background: '#fff', padding: '30px', borderRadius: '28px', textAlign: 'center', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' },
-  resultBadge:     { display: 'inline-block', background: '#dbeafe', color: '#1d4ed8', padding: '6px 16px', borderRadius: '30px', fontSize: '13px', fontWeight: '800', marginBottom: '8px' },
-  resTitle:        { fontSize: '26px', fontWeight: '900', margin: '15px 0' },
-  resDesc:         { background: '#f8fafc', padding: '20px', borderRadius: '16px', color: '#334155', fontSize: '15px', lineHeight: '1.6', textAlign: 'left' },
+  resultCard: { background: '#fff', padding: '30px', borderRadius: '28px', textAlign: 'center', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' },
+  resultBadge: { display: 'inline-block', background: '#dbeafe', color: '#1d4ed8', padding: '6px 16px', borderRadius: '30px', fontSize: '13px', fontWeight: '800', marginBottom: '8px' },
+  resTitle: { fontSize: '26px', fontWeight: '900', margin: '15px 0' },
+  resDesc: { background: '#f8fafc', padding: '20px', borderRadius: '16px', color: '#334155', fontSize: '15px', lineHeight: '1.6', textAlign: 'left' },
   resultPackageBox:{ marginTop: '16px', background: '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '14px', padding: '16px', textAlign: 'center' },
-  formCard:        { background: '#1e293b', padding: '28px', borderRadius: '28px', display: 'flex', flexDirection: 'column', gap: '12px' },
-  formTitle:       { color: '#fbbf24', fontSize: '20px', fontWeight: '900', textAlign: 'center' },
-  inputDark:       { width: '100%', padding: '18px', borderRadius: '14px', border: '2px solid #334155', fontSize: '17px', fontWeight: '700', outline: 'none', boxSizing: 'border-box', background: '#0f172a', color: '#f1f5f9' },
+  formCard: { background: '#1e293b', padding: '28px', borderRadius: '28px', display: 'flex', flexDirection: 'column', gap: '12px' },
+  formTitle: { color: '#fbbf24', fontSize: '20px', fontWeight: '900', textAlign: 'center' },
+  inputDark: { width: '100%', padding: '18px', borderRadius: '14px', border: '2px solid #334155', fontSize: '17px', fontWeight: '700', outline: 'none', boxSizing: 'border-box', background: '#0f172a', color: '#f1f5f9' },
   selectInputDark: { padding: '16px', borderRadius: '14px', fontSize: '15px', border: '2px solid #334155', background: '#0f172a', color: '#f1f5f9', width: '100%', fontWeight: '700', outline: 'none', boxSizing: 'border-box' },
-  submitBtn:       { background: '#fbbf24', color: '#1e293b', border: 'none', padding: '18px', borderRadius: '14px', fontSize: '16px', fontWeight: '900', cursor: 'pointer' },
-  callBtn:         { display: 'block', background: '#1e293b', color: '#fff', textDecoration: 'none', padding: '18px', borderRadius: '16px', fontWeight: 'bold', fontSize: '18px' },
-  prevBtn:         { background: '#e2e8f0', color: '#475569', border: 'none', padding: '18px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '80px' },
+  submitBtn: { background: '#fbbf24', color: '#1e293b', border: 'none', padding: '18px', borderRadius: '14px', fontSize: '16px', fontWeight: '900', cursor: 'pointer' },
+  callBtn: { display: 'block', background: '#1e293b', color: '#fff', textDecoration: 'none', padding: '18px', borderRadius: '16px', fontWeight: 'bold', fontSize: '18px' },
+  prevBtn: { background: '#e2e8f0', color: '#475569', border: 'none', padding: '18px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '80px' },
 };
