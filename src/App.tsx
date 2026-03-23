@@ -62,7 +62,7 @@ export default function App() {
   const [exemptionStatus, setExemptionStatus] = useState('없음');
   const [memo, setMemo] = useState('');
 
-  // ===== 비밀번호 계산 =====
+  // ===== 비밀번호 계산 (★ 팀명 기준) =====
   const COMPANY_CODE_MAP: Record<string, string> = { '애드': 'ad', '플라': 'pl' };
   const INITIAL_MAP: Record<string, string> = {
     'ㄱ':'g','ㄴ':'n','ㄷ':'d','ㄹ':'r','ㅁ':'m','ㅂ':'b','ㅅ':'s','ㅇ':'w',
@@ -74,11 +74,13 @@ export default function App() {
     const choseong = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
     return INITIAL_MAP[choseong[Math.floor(code / 588)]] || ch.toLowerCase();
   };
+  // ★ 팀명 기준으로 비밀번호 계산 (담당자명 아님!)
   const calcInitialPw = (): string => {
-    if (!companyName || !managerName) return '';
-    const nameOnly = managerName.trim().slice(1);
+    if (!companyName || !teamName) return '';
+    const nameOnly = teamName.trim().slice(1);
     let initials = '';
     for (let i = 0; i < nameOnly.length; i++) initials += getInitial(nameOnly[i]);
+    if (!initials) initials = teamName.trim().slice(-1).toLowerCase();
     const companyCode = COMPANY_CODE_MAP[companyName] || companyName.toLowerCase().slice(0, 2);
     return initials + '-' + companyCode + '-1234';
   };
@@ -535,7 +537,7 @@ export default function App() {
             <b>더 세부적으로 분석하여 곧 연락드리겠습니다.</b>
           </p>
 
-          {/* 현황판 로그인 정보 */}
+          {/* 현황판 로그인 정보 (★ 팀 공유 계정) */}
           <div style={{
             background: '#eff6ff', border: '2px solid #bfdbfe',
             borderRadius: '16px', padding: '20px', marginTop: '8px', textAlign: 'left'
@@ -544,15 +546,15 @@ export default function App() {
               상담 현황판 로그인 정보
             </div>
             <div style={{ fontSize: '13px', color: '#334155', lineHeight: '1.8' }}>
-              <b>담당자명:</b> {managerName}<br />
+              <b>팀명 (이름란에 입력):</b> {teamName}<br />
               <b>회사명:</b> {companyName}<br />
-              <b>초기 비밀번호:</b>{' '}
+              <b>비밀번호:</b>{' '}
               <span style={{ color: '#2563eb', fontWeight: '900', fontSize: '16px' }}>
                 {calcInitialPw()}
               </span>
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-              위 정보로 현황판에 로그인하시면 의뢰인 진행상황을 실시간으로 확인하실 수 있습니다.
+              팀 공유 계정입니다. 같은 팀원은 동일한 정보로 로그인하여 진행상황을 확인하실 수 있습니다.
             </div>
           </div>
 
