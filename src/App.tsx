@@ -188,7 +188,7 @@ export default function App() {
         "유입경로":     sourceValue,          // ★ 수정: "애드-이지" 형식
         "담당자":       managerName.trim(),
         "면책기간":     exemptionStatus,      // ★ 신규
-        "특이사항":     memo,                  // ★ 신규
+        "광고특이사항":     memo,                  // ★ 신규
       };
 
       await fetch(SCRIPT_URL, {
