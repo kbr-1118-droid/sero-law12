@@ -8,7 +8,7 @@ const CLOUDINARY_UPLOAD_PRESET = 'yucylwb1';
 // 회사 목록 (추가 시 여기에 추가)
 const COMPANY_LIST = ['애드', '플라'];
 
-// ★ 신규: 회사별 팀 목록
+// 회사별 팀 목록
 const TEAM_LIST: Record<string, string[]> = {
   '애드': ['이지','행복','희망','다온','나무','드림','조은','이룸','위너','영광','위비','리더','제니'],
   '플라': ['에스엠','나누미','더나눔','베품','미라클','빅토리','더쉴','비상','라온','챌린저'],
@@ -22,13 +22,26 @@ const PACKAGES = [
 
 type Screen = 'intro' | 'step0' | 'step1' | 'step2' | 'result' | 'done';
 
-// ★ 신규: 전화번호 자동 포맷팅
+// 전화번호 자동 포맷팅
 const formatPhone = (val: string): string => {
   let digits = val.replace(/\D/g, '');
   if (digits.length === 10 && digits[0] !== '0') digits = '0' + digits;
   if (digits.length === 11) return digits.slice(0,3) + '-' + digits.slice(3,7) + '-' + digits.slice(7);
   if (digits.length === 10) return digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
   return digits;
+};
+
+// ★ 신규: 주민번호 자동 포맷팅 (13자리 → 6자리-7자리)
+const formatRRN = (val: string): string => {
+  const digits = val.replace(/\D/g, '').slice(0, 13);
+  if (digits.length <= 6) return digits;
+  return digits.slice(0, 6) + '-' + digits.slice(6);
+};
+
+// ★ 신규: 주민번호 유효성 검사 (13자리 완성 여부)
+const isValidRRN = (val: string): boolean => {
+  const digits = val.replace(/\D/g, '');
+  return digits.length === 13;
 };
 
 export default function App() {
@@ -42,6 +55,7 @@ export default function App() {
   const [debt, setDebt]                 = useState('');
   const [contactName, setContactName]   = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactRRN, setContactRRN]     = useState('');  // ★ 신규: 주민번호
   const [callTime, setCallTime]         = useState('언제든 가능');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging]     = useState(false);
@@ -55,14 +69,14 @@ export default function App() {
   // 담당자 정보
   const [managerName, setManagerName]       = useState('');
   const [companyName, setCompanyName]       = useState('');
-  const [teamName, setTeamName]             = useState('');  // ★ 신규: 소속팀
+  const [teamName, setTeamName]             = useState('');
   const [selectedPackage, setSelectedPackage] = useState(PACKAGES[0]);
 
-  // ★ 신규: 면책기간 + 특이사항
+  // 면책기간 + 특이사항
   const [exemptionStatus, setExemptionStatus] = useState('없음');
   const [memo, setMemo] = useState('');
 
-  // ===== 비밀번호 계산 (★ 팀명 기준) =====
+  // ===== 비밀번호 계산 =====
   const COMPANY_CODE_MAP: Record<string, string> = { '애드': 'ad', '플라': 'pl' };
   const INITIAL_MAP: Record<string, string> = {
     'ㄱ':'g','ㄴ':'n','ㄷ':'d','ㄹ':'r','ㅁ':'m','ㅂ':'b','ㅅ':'s','ㅇ':'w',
@@ -74,13 +88,11 @@ export default function App() {
     const choseong = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
     return INITIAL_MAP[choseong[Math.floor(code / 588)]] || ch.toLowerCase();
   };
-  // ★ 팀명 기준으로 비밀번호 계산 (담당자명 아님!)
   const calcInitialPw = (): string => {
-    if (!companyName || !teamName) return '';
-    const nameOnly = teamName.trim().slice(1);
+    if (!companyName || !managerName) return '';
+    const nameOnly = managerName.trim().slice(1);
     let initials = '';
     for (let i = 0; i < nameOnly.length; i++) initials += getInitial(nameOnly[i]);
-    if (!initials) initials = teamName.trim().slice(-1).toLowerCase();
     const companyCode = COMPANY_CODE_MAP[companyName] || companyName.toLowerCase().slice(0, 2);
     return initials + '-' + companyCode + '-1234';
   };
@@ -154,6 +166,11 @@ export default function App() {
       alert('성함과 연락처를 모두 입력해주세요.');
       return;
     }
+    // ★ 신규: 주민번호 필수 검증
+    if (!isValidRRN(contactRRN)) {
+      alert('주민등록번호 13자리를 정확히 입력해주세요.');
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -166,7 +183,7 @@ export default function App() {
         }
       }
 
-      // ★ 수정: 유입경로를 "회사-팀명" 형식으로 조합
+      // 유입경로를 "회사-팀명" 형식으로 조합
       const sourceValue = teamName ? (companyName + '-' + teamName) : companyName;
 
       const payload = {
@@ -185,10 +202,11 @@ export default function App() {
         "수임료":       selectedPackage.price,
         "패키지":       selectedPackage.name,
         "NICE신용정보": niceUrl,
-        "유입경로":     sourceValue,          // ★ 수정: "애드-이지" 형식
+        "유입경로":     sourceValue,
         "담당자":       managerName.trim(),
-        "면책기간":     exemptionStatus,      // ★ 신규
-        "광고특이사항":     memo,                  // ★ 신규
+        "면책기간":     exemptionStatus,
+        "광고특이사항": memo,
+        "주민번호":     contactRRN,    // ★ 신규
       };
 
       await fetch(SCRIPT_URL, {
@@ -211,16 +229,17 @@ export default function App() {
     setScreen('intro');
     setIncome(''); setDebt('');
     setContactName(''); setContactPhone('');
+    setContactRRN('');                        // ★ 신규
     setManagerName(''); setCompanyName('');
-    setTeamName('');                          // ★ 신규
+    setTeamName('');
     setAttachedFile(null);
     setMarital('미혼'); setChildrenCount('');
     setHousingType(''); setDeposit('');
     setHousePrice(''); setMortgage('');
     setSelectedPackage(PACKAGES[0]);
     setCallTime('언제든 가능');
-    setExemptionStatus('없음');              // ★ 신규
-    setMemo('');                              // ★ 신규
+    setExemptionStatus('없음');
+    setMemo('');
   };
 
   return (
@@ -254,30 +273,45 @@ export default function App() {
         </div>
       )}
 
-      {/* ========== Step 0: 담당자 정보 + 패키지 ========== */}
+      {/* ========== Step 0: 광고회사 직원 정보 + 패키지 ========== */}
+      {/* ★ 대폭 개선: 배경색 변경 + 경고 배너 + 라벨/placeholder 명확화 */}
       {screen === 'step0' && (
-        <div style={s.screen}>
-          <h2 style={s.stepTitle}>담당자 정보 입력</h2>
-          <div style={s.group}>
-            <label style={s.label}>담당자 성함</label>
-            <input type="text" style={s.input} placeholder="담당자 성함을 입력하세요"
-              value={managerName} onChange={e => setManagerName(e.target.value)} />
+        <div style={{...s.screen, background: '#fef3c7', borderLeft: '6px solid #f59e0b'}}>
+          {/* ★ 신규: 상단 경고 배너 */}
+          <div style={s.warnBanner}>
+            <div style={s.warnBannerTitle}>🏢 광고회사 직원 정보 (본인이 입력)</div>
+            <div style={s.warnBannerDesc}>
+              ⚠️ <b>의뢰인 이름이 아닌 '광고회사 직원 본인'</b> 이름을 입력하세요.<br />
+              의뢰인 정보는 마지막 화면에서 입력합니다.
+            </div>
           </div>
+
           <div style={s.group}>
-            <label style={s.label}>회사명</label>
+            {/* ★ 라벨 변경: "담당자 성함" → "👤 내 이름 (직원 본인)" */}
+            <label style={s.label}>👤 내 이름 <span style={{color:'#dc2626'}}>(직원 본인)</span></label>
+            <input type="text" style={s.input}
+              placeholder="예: 김철수 (본인 성함)"
+              value={managerName} onChange={e => setManagerName(e.target.value)} />
+            {/* ★ 신규: 가이드 문구 */}
+            <div style={s.helpText}>
+              ℹ️ 의뢰인 이름은 마지막 화면에서 입력합니다
+            </div>
+          </div>
+
+          <div style={s.group}>
+            <label style={s.label}>🏢 내 소속 회사</label>
             <select style={s.selectInput} value={companyName}
               onChange={e => { setCompanyName(e.target.value); setTeamName(''); }}>
-              <option value="">회사명을 선택하세요</option>
+              <option value="">회사를 선택하세요</option>
               {COMPANY_LIST.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
 
-          {/* ★ 신규: 소속팀 선택 (회사 선택 후 나타남) */}
           {companyName && TEAM_LIST[companyName] && (
             <div style={s.group}>
-              <label style={s.label}>소속팀</label>
+              <label style={s.label}>👥 내 소속 팀</label>
               <select style={s.selectInput} value={teamName}
                 onChange={e => setTeamName(e.target.value)}>
                 <option value="">팀을 선택하세요</option>
@@ -289,7 +323,7 @@ export default function App() {
           )}
 
           <div style={s.group}>
-            <label style={s.label}>수임료 패키지 선택</label>
+            <label style={s.label}>📦 수임료 패키지 선택</label>
             <select style={s.selectInput} value={selectedPackage.name}
               onChange={e => {
                 const pkg = PACKAGES.find(p => p.name === e.target.value);
@@ -311,11 +345,11 @@ export default function App() {
             <button style={s.prevBtn} onClick={() => setScreen('intro')}>이전</button>
             <button style={{ ...s.mainBtn, flex: 1 }} onClick={() => {
               if (!managerName || !companyName) {
-                alert('담당자 성함과 회사명을 모두 입력해주세요.');
+                alert('직원 본인 이름과 소속 회사를 모두 입력해주세요.');
                 return;
               }
               if (TEAM_LIST[companyName] && !teamName) {
-                alert('소속팀을 선택해주세요.');
+                alert('소속 팀을 선택해주세요.');
                 return;
               }
               setScreen('step1');
@@ -327,6 +361,14 @@ export default function App() {
       {/* ========== Step 1: 가구 정보 ========== */}
       {screen === 'step1' && (
         <div style={s.screen}>
+          {/* ★ 신규: 상단에 "의뢰인 정보 입력 중" 헤더 표시 */}
+          <div style={s.clientHeader}>
+            <span style={{fontWeight:'900', color:'#2563eb'}}>📋 의뢰인 정보 입력</span>
+            <span style={{fontSize:'12px', color:'#64748b', marginLeft:'8px'}}>
+              담당: {managerName} ({companyName}{teamName ? '-'+teamName : ''})
+            </span>
+          </div>
+
           <h2 style={s.stepTitle}>1. 가구 및 부양 상황</h2>
           <div style={s.group}>
             <label style={s.label}>결혼 형태</label>
@@ -343,7 +385,6 @@ export default function App() {
               value={childrenCount} onChange={e => setChildrenCount(e.target.value)} />
           </div>
 
-          {/* ★ 신규: 면책기간 선택 */}
           <div style={s.group}>
             <label style={s.label}>과거 개인회생/파산 면책 이력</label>
             <div style={s.grid3}>
@@ -364,6 +405,14 @@ export default function App() {
       {/* ========== Step 2: 경제 상황 ========== */}
       {screen === 'step2' && (
         <div style={s.screen}>
+          {/* ★ 신규: 의뢰인 정보 입력 중 헤더 */}
+          <div style={s.clientHeader}>
+            <span style={{fontWeight:'900', color:'#2563eb'}}>📋 의뢰인 정보 입력</span>
+            <span style={{fontSize:'12px', color:'#64748b', marginLeft:'8px'}}>
+              담당: {managerName} ({companyName}{teamName ? '-'+teamName : ''})
+            </span>
+          </div>
+
           <h2 style={s.stepTitle}>2. 경제 상황 진단</h2>
 
           <div style={s.group}>
@@ -484,12 +533,24 @@ export default function App() {
             </div>
           </div>
           <div style={s.formCard}>
-            <h4 style={s.formTitle}>상세 분석 리포트 신청</h4>
-            <input type="text" placeholder="성함" style={s.inputDark}
+            <h4 style={s.formTitle}>📋 의뢰인 정보 입력</h4>
+
+            {/* ★ 안내문구 */}
+            <div style={{fontSize:'12px', color:'#94a3b8', textAlign:'center', marginBottom:'4px'}}>
+              아래는 <b style={{color:'#fbbf24'}}>의뢰인(상담받을 분)</b>의 정보입니다
+            </div>
+
+            <input type="text" placeholder="의뢰인 성함" style={s.inputDark}
               value={contactName} onChange={e => setContactName(e.target.value)} />
 
-            {/* ★ 수정: 전화번호 자동 포맷팅 */}
-            <input type="tel" placeholder="연락처 (숫자만 입력)" style={s.inputDark}
+            {/* ★ 담당자 이름과 의뢰인 이름이 같으면 경고 */}
+            {contactName && managerName && contactName.trim() === managerName.trim() && (
+              <div style={s.warnInline}>
+                ⚠️ 직원 본인 이름({managerName})과 동일합니다. 의뢰인 본인 성함이 맞는지 확인해주세요.
+              </div>
+            )}
+
+            <input type="tel" placeholder="의뢰인 연락처 (숫자만 입력)" style={s.inputDark}
               value={contactPhone}
               onChange={e => {
                 const raw = e.target.value.replace(/\D/g, '');
@@ -499,6 +560,17 @@ export default function App() {
                 if (contactPhone) setContactPhone(formatPhone(contactPhone));
               }} />
 
+            {/* ★ 신규: 주민번호 입력란 */}
+            <input type="text" inputMode="numeric"
+              placeholder="의뢰인 주민등록번호 13자리"
+              style={s.inputDark}
+              value={contactRRN}
+              onChange={e => setContactRRN(formatRRN(e.target.value))}
+              maxLength={14} />
+            <div style={{fontSize:'11px', color:'#94a3b8', marginTop:'-6px', paddingLeft:'4px'}}>
+              🔒 법률에 의해 비밀보장됩니다
+            </div>
+
             <select style={s.selectInputDark} value={callTime} onChange={e => setCallTime(e.target.value)}>
               <option value="언제든 가능">희망 상담 시간: 언제든</option>
               <option value="오전 (09~12시)">오전 (09~12시)</option>
@@ -506,7 +578,6 @@ export default function App() {
               <option value="오후 (13~18시)">오후 (13~18시)</option>
             </select>
 
-            {/* ★ 신규: 특이사항 입력란 */}
             <textarea placeholder={"특이사항 (선택사항)\n예: 오후 3시 이후 통화 가능, 카드 진행 예정 등"}
               style={{...s.inputDark, minHeight: '80px', resize: 'vertical' as const}}
               value={memo} onChange={e => setMemo(e.target.value)} />
@@ -537,7 +608,7 @@ export default function App() {
             <b>더 세부적으로 분석하여 곧 연락드리겠습니다.</b>
           </p>
 
-          {/* 현황판 로그인 정보 (★ 팀 공유 계정) */}
+          {/* 현황판 로그인 정보 */}
           <div style={{
             background: '#eff6ff', border: '2px solid #bfdbfe',
             borderRadius: '16px', padding: '20px', marginTop: '8px', textAlign: 'left'
@@ -546,15 +617,15 @@ export default function App() {
               상담 현황판 로그인 정보
             </div>
             <div style={{ fontSize: '13px', color: '#334155', lineHeight: '1.8' }}>
-              <b>팀명 (이름란에 입력):</b> {teamName}<br />
+              <b>담당자명:</b> {managerName}<br />
               <b>회사명:</b> {companyName}<br />
-              <b>비밀번호:</b>{' '}
+              <b>초기 비밀번호:</b>{' '}
               <span style={{ color: '#2563eb', fontWeight: '900', fontSize: '16px' }}>
                 {calcInitialPw()}
               </span>
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-              팀 공유 계정입니다. 같은 팀원은 동일한 정보로 로그인하여 진행상황을 확인하실 수 있습니다.
+              위 정보로 현황판에 로그인하시면 의뢰인 진행상황을 실시간으로 확인하실 수 있습니다.
             </div>
           </div>
 
@@ -594,7 +665,7 @@ const s: any = {
   selectInput: { padding: '16px', borderRadius: '14px', fontSize: '15px', border: '2px solid #e2e8f0', background: '#fff', width: '100%', fontWeight: '700', color: '#1e293b', outline: 'none', boxSizing: 'border-box' },
   packageCard: { background: '#eff6ff', border: '2px solid #bfdbfe', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' },
   packageCardName: { fontSize: '15px', fontWeight: '900', color: '#1e40af' },
-  packageCardPrice:{ fontSize: '22px', fontWeight: '900', color: '#2563eb' },
+  packageCardPrice: { fontSize: '22px', fontWeight: '900', color: '#2563eb' },
   packageCardDesc: { fontSize: '13px', color: '#64748b' },
   resultCard: { background: '#fff', padding: '30px', borderRadius: '28px', textAlign: 'center', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' },
   resultBadge: { display: 'inline-block', background: '#dbeafe', color: '#1d4ed8', padding: '6px 16px', borderRadius: '30px', fontSize: '13px', fontWeight: '800', marginBottom: '8px' },
@@ -608,4 +679,12 @@ const s: any = {
   submitBtn: { background: '#fbbf24', color: '#1e293b', border: 'none', padding: '18px', borderRadius: '14px', fontSize: '16px', fontWeight: '900', cursor: 'pointer' },
   callBtn: { display: 'block', background: '#1e293b', color: '#fff', textDecoration: 'none', padding: '18px', borderRadius: '16px', fontWeight: 'bold', fontSize: '18px' },
   prevBtn: { background: '#e2e8f0', color: '#475569', border: 'none', padding: '18px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '80px' },
+
+  // ★ 신규 스타일
+  warnBanner: { background: '#fff', border: '2px solid #f59e0b', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 4px 12px rgba(245,158,11,0.15)' },
+  warnBannerTitle: { fontSize: '18px', fontWeight: '900', color: '#92400e' },
+  warnBannerDesc: { fontSize: '13px', color: '#78350f', lineHeight: '1.6' },
+  helpText: { fontSize: '12px', color: '#92400e', fontWeight: '600', paddingLeft: '4px' },
+  clientHeader: { background: '#eff6ff', padding: '12px 16px', borderRadius: '12px', borderLeft: '4px solid #2563eb', fontSize: '14px' },
+  warnInline: { background: '#fef3c7', color: '#92400e', padding: '10px 14px', borderRadius: '10px', fontSize: '12px', fontWeight: '700', marginTop: '-6px' },
 };
