@@ -31,14 +31,14 @@ const formatPhone = (val: string): string => {
   return digits;
 };
 
-// ★ 신규: 주민번호 자동 포맷팅 (13자리 → 6자리-7자리)
+// 주민번호 자동 포맷팅 (13자리 → 6자리-7자리)
 const formatRRN = (val: string): string => {
   const digits = val.replace(/\D/g, '').slice(0, 13);
   if (digits.length <= 6) return digits;
   return digits.slice(0, 6) + '-' + digits.slice(6);
 };
 
-// ★ 신규: 주민번호 유효성 검사 (13자리 완성 여부)
+// 주민번호 유효성 검사 (13자리 완성 여부)
 const isValidRRN = (val: string): boolean => {
   const digits = val.replace(/\D/g, '');
   return digits.length === 13;
@@ -55,7 +55,7 @@ export default function App() {
   const [debt, setDebt]                 = useState('');
   const [contactName, setContactName]   = useState('');
   const [contactPhone, setContactPhone] = useState('');
-  const [contactRRN, setContactRRN]     = useState('');  // ★ 신규: 주민번호
+  const [contactRRN, setContactRRN]     = useState('');  // 주민번호
   const [callTime, setCallTime]         = useState('언제든 가능');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging]     = useState(false);
@@ -71,6 +71,8 @@ export default function App() {
   const [companyName, setCompanyName]       = useState('');
   const [teamName, setTeamName]             = useState('');
   const [selectedPackage, setSelectedPackage] = useState(PACKAGES[0]);
+  // ★ 신규: 실제 안내금액 (숫자만 저장). 패키지 기본가로 초기화
+  const [annaeAmount, setAnnaeAmount] = useState(PACKAGES[0].price.replace(/[^0-9]/g, ''));
 
   // 면책기간 + 특이사항
   const [exemptionStatus, setExemptionStatus] = useState('없음');
@@ -166,7 +168,7 @@ export default function App() {
       alert('성함과 연락처를 모두 입력해주세요.');
       return;
     }
-    // ★ 신규: 주민번호 필수 검증
+    // 주민번호 필수 검증
     if (!isValidRRN(contactRRN)) {
       alert('주민등록번호 13자리를 정확히 입력해주세요.');
       return;
@@ -206,7 +208,9 @@ export default function App() {
         "담당자":       managerName.trim(),
         "면책기간":     exemptionStatus,
         "광고특이사항": memo,
-        "주민번호":     contactRRN,    // ★ 신규
+        "주민번호":     contactRRN,
+        // ★ 신규: 실제 안내금액 (수정값, 없으면 패키지 기본가)
+        "안내금액":     annaeAmount ? (fmt(annaeAmount) + '원') : selectedPackage.price,
       };
 
       await fetch(SCRIPT_URL, {
@@ -229,7 +233,7 @@ export default function App() {
     setScreen('intro');
     setIncome(''); setDebt('');
     setContactName(''); setContactPhone('');
-    setContactRRN('');                        // ★ 신규
+    setContactRRN('');
     setManagerName(''); setCompanyName('');
     setTeamName('');
     setAttachedFile(null);
@@ -237,6 +241,7 @@ export default function App() {
     setHousingType(''); setDeposit('');
     setHousePrice(''); setMortgage('');
     setSelectedPackage(PACKAGES[0]);
+    setAnnaeAmount(PACKAGES[0].price.replace(/[^0-9]/g, ''));  // ★ 신규
     setCallTime('언제든 가능');
     setExemptionStatus('없음');
     setMemo('');
@@ -274,10 +279,9 @@ export default function App() {
       )}
 
       {/* ========== Step 0: 광고회사 직원 정보 + 패키지 ========== */}
-      {/* ★ 대폭 개선: 배경색 변경 + 경고 배너 + 라벨/placeholder 명확화 */}
       {screen === 'step0' && (
         <div style={{...s.screen, background: '#fef3c7', borderLeft: '6px solid #f59e0b'}}>
-          {/* ★ 신규: 상단 경고 배너 */}
+          {/* 상단 경고 배너 */}
           <div style={s.warnBanner}>
             <div style={s.warnBannerTitle}>🏢 광고회사 직원 정보 (본인이 입력)</div>
             <div style={s.warnBannerDesc}>
@@ -287,12 +291,10 @@ export default function App() {
           </div>
 
           <div style={s.group}>
-            {/* ★ 라벨 변경: "담당자 성함" → "👤 내 이름 (직원 본인)" */}
             <label style={s.label}>👤 내 이름 <span style={{color:'#dc2626'}}>(직원 본인)</span></label>
             <input type="text" style={s.input}
               placeholder="예: 김철수 (본인 성함)"
               value={managerName} onChange={e => setManagerName(e.target.value)} />
-            {/* ★ 신규: 가이드 문구 */}
             <div style={s.helpText}>
               ℹ️ 의뢰인 이름은 마지막 화면에서 입력합니다
             </div>
@@ -322,12 +324,16 @@ export default function App() {
             </div>
           )}
 
+          {/* 패키지 선택 + 예시 설명 카드 */}
           <div style={s.group}>
             <label style={s.label}>📦 수임료 패키지 선택</label>
             <select style={s.selectInput} value={selectedPackage.name}
               onChange={e => {
                 const pkg = PACKAGES.find(p => p.name === e.target.value);
-                if (pkg) setSelectedPackage(pkg);
+                if (pkg) {
+                  setSelectedPackage(pkg);
+                  setAnnaeAmount(pkg.price.replace(/[^0-9]/g, ''));  // ★ 패키지 변경 시 기본가 자동 세팅
+                }
               }}>
               {PACKAGES.map(pkg => (
                 <option key={pkg.name} value={pkg.name}>
@@ -337,10 +343,33 @@ export default function App() {
             </select>
             <div style={s.packageCard}>
               <div style={s.packageCardName}>{selectedPackage.name}</div>
-              <div style={s.packageCardPrice}>{selectedPackage.price}</div>
+              <div style={s.packageCardPrice}>기본가 {selectedPackage.price}</div>
               <div style={s.packageCardDesc}>{selectedPackage.desc}</div>
             </div>
           </div>
+
+          {/* ★ 신규: 실제 안내 금액 입력칸 */}
+          <div style={s.group}>
+            <label style={s.label}>
+              💰 실제 안내 금액 <span style={{color:'#dc2626'}}>(의뢰인에게 안내한 금액)</span>
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input type="text" inputMode="numeric" style={s.input}
+                value={fmt(annaeAmount)}
+                onChange={e => setAnnaeAmount(e.target.value.replace(/\D/g, ''))} />
+              <span style={s.unit}>원</span>
+            </div>
+            <div style={s.helpText}>
+              ℹ️ 패키지 기본가가 자동 입력됩니다. 다르게 안내했다면 수정하세요.<br />
+              (예: 스마트를 500만원으로 안내 → 5,000,000 으로 수정)
+            </div>
+            {annaeAmount && annaeAmount !== selectedPackage.price.replace(/[^0-9]/g, '') && (
+              <div style={s.warnInline}>
+                💡 기본가({selectedPackage.price})와 다르게 안내됨 → {fmt(annaeAmount)}원
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={s.prevBtn} onClick={() => setScreen('intro')}>이전</button>
             <button style={{ ...s.mainBtn, flex: 1 }} onClick={() => {
@@ -352,6 +381,10 @@ export default function App() {
                 alert('소속 팀을 선택해주세요.');
                 return;
               }
+              if (!annaeAmount) {
+                alert('실제 안내 금액을 입력해주세요.');
+                return;
+              }
               setScreen('step1');
             }}>다음 단계로</button>
           </div>
@@ -361,7 +394,6 @@ export default function App() {
       {/* ========== Step 1: 가구 정보 ========== */}
       {screen === 'step1' && (
         <div style={s.screen}>
-          {/* ★ 신규: 상단에 "의뢰인 정보 입력 중" 헤더 표시 */}
           <div style={s.clientHeader}>
             <span style={{fontWeight:'900', color:'#2563eb'}}>📋 의뢰인 정보 입력</span>
             <span style={{fontSize:'12px', color:'#64748b', marginLeft:'8px'}}>
@@ -405,7 +437,6 @@ export default function App() {
       {/* ========== Step 2: 경제 상황 ========== */}
       {screen === 'step2' && (
         <div style={s.screen}>
-          {/* ★ 신규: 의뢰인 정보 입력 중 헤더 */}
           <div style={s.clientHeader}>
             <span style={{fontWeight:'900', color:'#2563eb'}}>📋 의뢰인 정보 입력</span>
             <span style={{fontSize:'12px', color:'#64748b', marginLeft:'8px'}}>
@@ -529,13 +560,15 @@ export default function App() {
             <div style={s.resultPackageBox}>
               <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>선택 패키지</div>
               <div style={{ fontWeight: '900', fontSize: '16px', color: '#1e293b' }}>{selectedPackage.name}</div>
-              <div style={{ fontWeight: '800', fontSize: '20px', color: '#2563eb', marginTop: '2px' }}>{selectedPackage.price}</div>
+              {/* ★ 안내금액이 기본가와 다르면 안내금액을, 같으면 기본가를 표시 */}
+              <div style={{ fontWeight: '800', fontSize: '20px', color: '#2563eb', marginTop: '2px' }}>
+                {annaeAmount ? (fmt(annaeAmount) + '원') : selectedPackage.price}
+              </div>
             </div>
           </div>
           <div style={s.formCard}>
             <h4 style={s.formTitle}>📋 의뢰인 정보 입력</h4>
 
-            {/* ★ 안내문구 */}
             <div style={{fontSize:'12px', color:'#94a3b8', textAlign:'center', marginBottom:'4px'}}>
               아래는 <b style={{color:'#fbbf24'}}>의뢰인(상담받을 분)</b>의 정보입니다
             </div>
@@ -543,7 +576,6 @@ export default function App() {
             <input type="text" placeholder="의뢰인 성함" style={s.inputDark}
               value={contactName} onChange={e => setContactName(e.target.value)} />
 
-            {/* ★ 담당자 이름과 의뢰인 이름이 같으면 경고 */}
             {contactName && managerName && contactName.trim() === managerName.trim() && (
               <div style={s.warnInline}>
                 ⚠️ 직원 본인 이름({managerName})과 동일합니다. 의뢰인 본인 성함이 맞는지 확인해주세요.
@@ -560,7 +592,6 @@ export default function App() {
                 if (contactPhone) setContactPhone(formatPhone(contactPhone));
               }} />
 
-            {/* ★ 신규: 주민번호 입력란 */}
             <input type="text" inputMode="numeric"
               placeholder="의뢰인 주민등록번호 13자리"
               style={s.inputDark}
@@ -680,7 +711,7 @@ const s: any = {
   callBtn: { display: 'block', background: '#1e293b', color: '#fff', textDecoration: 'none', padding: '18px', borderRadius: '16px', fontWeight: 'bold', fontSize: '18px' },
   prevBtn: { background: '#e2e8f0', color: '#475569', border: 'none', padding: '18px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '80px' },
 
-  // ★ 신규 스타일
+  // 스타일
   warnBanner: { background: '#fff', border: '2px solid #f59e0b', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 4px 12px rgba(245,158,11,0.15)' },
   warnBannerTitle: { fontSize: '18px', fontWeight: '900', color: '#92400e' },
   warnBannerDesc: { fontSize: '13px', color: '#78350f', lineHeight: '1.6' },
