@@ -31,19 +31,6 @@ const formatPhone = (val: string): string => {
   return digits;
 };
 
-// 주민번호 자동 포맷팅 (13자리 → 6자리-7자리)
-const formatRRN = (val: string): string => {
-  const digits = val.replace(/\D/g, '').slice(0, 13);
-  if (digits.length <= 6) return digits;
-  return digits.slice(0, 6) + '-' + digits.slice(6);
-};
-
-// 주민번호 유효성 검사 (13자리 완성 여부)
-const isValidRRN = (val: string): boolean => {
-  const digits = val.replace(/\D/g, '');
-  return digits.length === 13;
-};
-
 export default function App() {
   const [screen, setScreen] = useState<Screen>('intro');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,7 +42,6 @@ export default function App() {
   const [debt, setDebt]                 = useState('');
   const [contactName, setContactName]   = useState('');
   const [contactPhone, setContactPhone] = useState('');
-  const [contactRRN, setContactRRN]     = useState('');  // 주민번호
   const [callTime, setCallTime]         = useState('언제든 가능');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging]     = useState(false);
@@ -168,11 +154,6 @@ export default function App() {
       alert('성함과 연락처를 모두 입력해주세요.');
       return;
     }
-    // 주민번호 필수 검증
-    if (!isValidRRN(contactRRN)) {
-      alert('주민등록번호 13자리를 정확히 입력해주세요.');
-      return;
-    }
     setIsSubmitting(true);
 
     try {
@@ -208,7 +189,6 @@ export default function App() {
         "담당자":       managerName.trim(),
         "면책기간":     exemptionStatus,
         "광고특이사항": memo,
-        "주민번호":     contactRRN,
         // ★ 신규: 실제 안내금액 (수정값, 없으면 패키지 기본가)
         "안내금액":     annaeAmount ? (fmt(annaeAmount) + '원') : selectedPackage.price,
       };
@@ -233,7 +213,6 @@ export default function App() {
     setScreen('intro');
     setIncome(''); setDebt('');
     setContactName(''); setContactPhone('');
-    setContactRRN('');
     setManagerName(''); setCompanyName('');
     setTeamName('');
     setAttachedFile(null);
@@ -591,16 +570,6 @@ export default function App() {
               onBlur={() => {
                 if (contactPhone) setContactPhone(formatPhone(contactPhone));
               }} />
-
-            <input type="text" inputMode="numeric"
-              placeholder="의뢰인 주민등록번호 13자리"
-              style={s.inputDark}
-              value={contactRRN}
-              onChange={e => setContactRRN(formatRRN(e.target.value))}
-              maxLength={14} />
-            <div style={{fontSize:'11px', color:'#94a3b8', marginTop:'-6px', paddingLeft:'4px'}}>
-              🔒 법률에 의해 비밀보장됩니다
-            </div>
 
             <select style={s.selectInputDark} value={callTime} onChange={e => setCallTime(e.target.value)}>
               <option value="언제든 가능">희망 상담 시간: 언제든</option>
