@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 
 // ===== 설정값 =====
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-icRipFouIWEg0QdBgIHU7NvCWhAmTYfNxzscUSURAmfZWjCPal7eTML0sVCv6YTLIw/exec';
+// ⚠️ 아래 SCRIPT_URL은 "접수용(doPost)" 웹앱 주소입니다.
+//    내부 현황판 주소(AKfycbw-icRip...)와 다릅니다. 절대 바꾸지 마세요.
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxePUT_HNDgqCsti0LhNwx0-iibiKECDCFO_snoZvhV0MBTAs1G8LKtu4c23kQbINQxSg/exec';
 const CLOUDINARY_CLOUD_NAME = 'deyljykwb';
 const CLOUDINARY_UPLOAD_PRESET = 'yucylwb1';
 
