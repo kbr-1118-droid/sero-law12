@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 // ===== 설정값 =====
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxePUT_HNDgqCsti0LhNWx0-iibiKECDCFO_snoZvhV0MBTAs1G8LKtu4c23kQbINQxSg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-icRipFouIWEg0QdBgIHU7NvCWhAmTYfNxzscUSURAmfZWjCPal7eTML0sVCv6YTLIw/exec';
 const CLOUDINARY_CLOUD_NAME = 'deyljykwb';
 const CLOUDINARY_UPLOAD_PRESET = 'yucylwb1';
 
